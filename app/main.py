@@ -1,10 +1,8 @@
 from flask import Flask, request, jsonify, Response
 import os
-import queue
-import threading
 import json
 
-from app.state import engine_state, set_active_queue
+from app.state import engine_state
 from app.engine import upload_pdf_and_init, process_action
 
 # Initialize Flask app pointing to local static directory
@@ -44,7 +42,7 @@ def upload():
 
 @app.route('/action', methods=['POST'])
 def action():
-    """ Validates action, queues task, and returns NDJSON streaming response """
+    """ Validates action and returns NDJSON streaming response """
     chat_session = engine_state.get("chat_session")
     if not chat_session:
         return jsonify({"error": "Engine not initialized. Please upload a PDF first."}), 400
@@ -55,15 +53,8 @@ def action():
     if not player_text:
         return jsonify({"error": "No text provided"}), 400
 
-    q = queue.Queue()
-    set_active_queue(q)
-
-    # Dispatch to background process so we can stream instantly over HTTP
-    threading.Thread(target=process_action, args=(player_text,)).start()
-
     def generate():
-        while True:
-            item = q.get()
+        for item in process_action(player_text):
             yield json.dumps(item) + "\n"
             if item.get("type") in ["done", "error"]:
                 break
