@@ -82,6 +82,7 @@ def upload_pdf_and_init(temp_path: str, filename: str):
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             tools=[roll_dice],
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
     )
     
@@ -117,33 +118,53 @@ def process_action(player_text: str):
         dm_text_parts = []
         emitted_tool_calls = set()
 
-        for chunk in chat_session.send_message_stream(player_text):
-            chunk_text = chunk.text or ""
-            if chunk_text:
-                dm_text_parts.append(chunk_text)
-                yield {"type": "text_chunk", "text": chunk_text}
+        current_input = player_text
+        
+        while True:
+            stream = chat_session.send_message_stream(current_input)
+            function_calls = []
 
-            function_calls = getattr(chunk, "function_calls", None) or []
+            for chunk in stream:
+                chunk_text = chunk.text or ""
+                if chunk_text:
+                    dm_text_parts.append(chunk_text)
+                    yield {"type": "text_chunk", "text": chunk_text}
+
+                fcs = getattr(chunk, "function_calls", None) or []
+                if fcs:
+                    function_calls.extend(fcs)
+                    
+            if not function_calls:
+                break
+                
+            tool_response_parts = []
             for function_call in function_calls:
                 tool_name = getattr(function_call, "name", None) or "tool"
                 tool_args = getattr(function_call, "args", None) or {}
+                
                 call_key = (tool_name, str(tool_args))
-                if call_key in emitted_tool_calls:
-                    continue
-                emitted_tool_calls.add(call_key)
-
+                if call_key not in emitted_tool_calls:
+                    emitted_tool_calls.add(call_key)
+                    if tool_name == "roll_dice":
+                        dice_type = tool_args.get("dice_type", "?")
+                        modifier = tool_args.get("modifier", 0)
+                        operator = "+" if isinstance(modifier, int) and modifier >= 0 else ""
+                        message = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
+                        purpose = tool_args.get("purpose")
+                        if purpose and str(purpose).lower() != "general":
+                            message += f" (for *{purpose}*)"
+                        message += "..."
+                        yield {"type": "tool_call", "message": message}
+                    else:
+                        yield {"type": "status", "message": f"Running {tool_name}..."}
+                        
                 if tool_name == "roll_dice":
-                    dice_type = tool_args.get("dice_type", "?")
-                    modifier = tool_args.get("modifier", 0)
-                    operator = "+" if isinstance(modifier, int) and modifier >= 0 else ""
-                    message = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
-                    purpose = tool_args.get("purpose")
-                    if purpose and str(purpose).lower() != "general":
-                        message += f" (for *{purpose}*)"
-                    message += "..."
-                    yield {"type": "tool_call", "message": message}
+                    res = roll_dice(**tool_args)
+                    tool_response_parts.append(types.Part.from_function_response(name=tool_name, response=res))
                 else:
-                    yield {"type": "status", "message": f"Running {tool_name}..."}
+                    tool_response_parts.append(types.Part.from_function_response(name=tool_name, response={"error": "Tool not found"}))
+            
+            current_input = tool_response_parts
 
         dm_text_full = "".join(dm_text_parts)
 
