@@ -3,7 +3,7 @@ import time
 import google.genai as genai
 from google.genai import types
 
-from app.state import engine_state, get_active_queue
+from app.state import engine_state
 from app.tools import roll_dice
 
 # Initialize the Gemini Client natively pulling from GEMINI_API_KEY
@@ -106,37 +106,58 @@ def upload_pdf_and_init(temp_path: str, filename: str):
 
 
 def process_action(player_text: str):
-    """ The core execution loop for driving a player action into the thread """
-    q = get_active_queue()
-    if not q:
-        return
-        
+    """The core execution loop for driving a player action as a sequential stream."""
     chat_session = engine_state.get("chat_session")
-    
+    if not chat_session:
+        yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
+        return
+
     try:
         print(f"Player Action: {player_text}")
-        response = chat_session.send_message(player_text)
+        dm_text_parts = []
+        emitted_tool_calls = set()
 
-        dm_text_full = response.text or ""
-        
-        if dm_text_full:
-            # Fake stream for UX
-            chunk_size = 50
-            for i in range(0, len(dm_text_full), chunk_size):
-                time.sleep(0.02)
-                q.put({"type": "text_chunk", "text": dm_text_full[i:i+chunk_size]})
+        for chunk in chat_session.send_message_stream(player_text):
+            chunk_text = chunk.text or ""
+            if chunk_text:
+                dm_text_parts.append(chunk_text)
+                yield {"type": "text_chunk", "text": chunk_text}
 
-        q.put({"type": "status", "message": "Synthesizing scene visuals..."})
+            function_calls = getattr(chunk, "function_calls", None) or []
+            for function_call in function_calls:
+                tool_name = getattr(function_call, "name", None) or "tool"
+                tool_args = getattr(function_call, "args", None) or {}
+                call_key = (tool_name, str(tool_args))
+                if call_key in emitted_tool_calls:
+                    continue
+                emitted_tool_calls.add(call_key)
+
+                if tool_name == "roll_dice":
+                    dice_type = tool_args.get("dice_type", "?")
+                    modifier = tool_args.get("modifier", 0)
+                    operator = "+" if isinstance(modifier, int) and modifier >= 0 else ""
+                    message = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
+                    purpose = tool_args.get("purpose")
+                    if purpose and str(purpose).lower() != "general":
+                        message += f" (for *{purpose}*)"
+                    message += "..."
+                    yield {"type": "tool_call", "message": message}
+                else:
+                    yield {"type": "status", "message": f"Running {tool_name}..."}
+
+        dm_text_full = "".join(dm_text_parts)
+
+        yield {"type": "status", "message": "Synthesizing scene visuals..."}
 
         if dm_text_full.strip():
             try:
                 image_data = _generate_scene_image(dm_text_full)
                 if image_data:
-                    q.put({"type": "image", "image_data": image_data})
+                    yield {"type": "image", "image_data": image_data}
             except Exception as img_err:
                 print(f"Thumbnail generation skipped/failed: {img_err}")
 
-        q.put({"type": "done"})
+        yield {"type": "done"}
     except Exception as e:
         print(f"Action error: {e}")
-        q.put({"type": "error", "error": str(e)})
+        yield {"type": "error", "error": str(e)}
