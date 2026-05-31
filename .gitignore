@@ -1,0 +1,36 @@
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache / compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Project specific ignores
+tmp/
+sandbox/tmp/
+*.pdf
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

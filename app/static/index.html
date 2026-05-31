@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Harness Engine</title>
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Upload Initialization Layer -->
+    <div id="upload-overlay">
+        <div class="upload-container">
+            <h1>Dungeon Harness</h1>
+            <p style="margin-bottom: 20px; color: #aaa;">Drop in a PDF module to begin your quest.</p>
+            <input type="file" id="pdf-upload" accept="application/pdf" />
+            <button class="primary" id="init-engine-btn" onclick="initializeEngine()">Begin Quest</button>
+            <div id="loading-text">Preparing your adventure...</div>
+        </div>
+    </div>
+
+    <!-- Main Game Dashboard -->
+    <div id="dashboard">
+        <!-- Visual Horizon (Left) -->
+        <div id="image-canvas-container">
+            <span class="placeholder-text" id="canvas-placeholder">Scene visualizations will appear here...</span>
+            <img id="image-canvas" src="" alt="Thumbnail Scene" style="display: none;" />
+        </div>
+
+        <!-- Chat Interface (Right) -->
+        <div id="right-panel">
+            <!-- Chat History -->
+            <div id="chat-window">
+                <!-- Initial DM message will be dynamically injected here upon upload -->
+            </div>
+
+            <!-- Action Input -->
+            <div id="input-footer">
+                <input type="text" id="action-input" placeholder="What do you do...?" onkeypress="handleKeyPress(event)" />
+                <button id="send-action-btn" onclick="sendAction()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Engine Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>
