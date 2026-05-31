@@ -22,8 +22,8 @@ def upload():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    os.makedirs('tmp', exist_ok=True)
-    temp_path = os.path.join('tmp', file.filename)
+    os.makedirs('/tmp', exist_ok=True)
+    temp_path = os.path.join('/tmp', file.filename)
     file.save(temp_path)
 
     try:
