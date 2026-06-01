@@ -82,7 +82,6 @@ def upload_pdf_and_init(temp_path: str, filename: str):
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             tools=[roll_dice],
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
     )
     
@@ -107,66 +106,46 @@ def upload_pdf_and_init(temp_path: str, filename: str):
 
 
 def process_action(player_text: str):
-    """The core execution loop for driving a player action as a sequential stream."""
+    """The core execution loop for driving a player action synchronously with threaded queue draining."""
     chat_session = engine_state.get("chat_session")
     if not chat_session:
         yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
         return
 
+    import queue
+    import threading
+    from app.state import set_active_queue
+    
+    q = queue.Queue()
+    set_active_queue(q)
+
     try:
         print(f"Player Action: {player_text}")
-        dm_text_parts = []
-        emitted_tool_calls = set()
 
-        current_input = player_text
-        
+        def generate_response_backend():
+            try:
+                # Issue: Google GenAI stream() generator completely eats the text result if an AFC fired.
+                # Sending non-stream chat correctly returns the tool result output narrative to us.
+                resp = chat_session.send_message(player_text)
+                q.put({"type": "text_chunk", "text": resp.text})
+                q.put({"type": "done_internal"})
+            except Exception as e:
+                q.put({"type": "error", "error": str(e)})
+
+        t = threading.Thread(target=generate_response_backend)
+        t.start()
+
+        dm_text_full = ""
         while True:
-            stream = chat_session.send_message_stream(current_input)
-            function_calls = []
-
-            for chunk in stream:
-                chunk_text = chunk.text or ""
-                if chunk_text:
-                    dm_text_parts.append(chunk_text)
-                    yield {"type": "text_chunk", "text": chunk_text}
-
-                fcs = getattr(chunk, "function_calls", None) or []
-                if fcs:
-                    function_calls.extend(fcs)
-                    
-            if not function_calls:
+            item = q.get()
+            if item["type"] == "done_internal":
                 break
-                
-            tool_response_parts = []
-            for function_call in function_calls:
-                tool_name = getattr(function_call, "name", None) or "tool"
-                tool_args = getattr(function_call, "args", None) or {}
-                
-                call_key = (tool_name, str(tool_args))
-                if call_key not in emitted_tool_calls:
-                    emitted_tool_calls.add(call_key)
-                    if tool_name == "roll_dice":
-                        dice_type = tool_args.get("dice_type", "?")
-                        modifier = tool_args.get("modifier", 0)
-                        operator = "+" if isinstance(modifier, int) and modifier >= 0 else ""
-                        message = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
-                        purpose = tool_args.get("purpose")
-                        if purpose and str(purpose).lower() != "general":
-                            message += f" (for *{purpose}*)"
-                        message += "..."
-                        yield {"type": "tool_call", "message": message}
-                    else:
-                        yield {"type": "status", "message": f"Running {tool_name}..."}
-                        
-                if tool_name == "roll_dice":
-                    res = roll_dice(**tool_args)
-                    tool_response_parts.append(types.Part.from_function_response(name=tool_name, response=res))
-                else:
-                    tool_response_parts.append(types.Part.from_function_response(name=tool_name, response={"error": "Tool not found"}))
             
-            current_input = tool_response_parts
-
-        dm_text_full = "".join(dm_text_parts)
+            # Catch text to use to generate the scene image
+            if item.get("type") == "text_chunk":
+                dm_text_full += item.get("text", "")
+                
+            yield item
 
         yield {"type": "status", "message": "Synthesizing scene visuals..."}
 
