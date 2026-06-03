@@ -78,10 +78,11 @@ def upload_pdf_and_init(temp_path: str, filename: str):
 
     print("Initializing Chat Session...")
     engine_state["chat_session"] = client.chats.create(
-        model='gemini-3.5-flash',
+        model='gemini-2.5-flash',
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             tools=[roll_dice],
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
     )
     
@@ -106,46 +107,45 @@ def upload_pdf_and_init(temp_path: str, filename: str):
 
 
 def process_action(player_text: str):
-    """The core execution loop for driving a player action synchronously with threaded queue draining."""
+    """The core execution loop for driving a player action synchronously as a pure generator."""
     chat_session = engine_state.get("chat_session")
     if not chat_session:
         yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
         return
 
-    import queue
-    import threading
-    from app.state import set_active_queue
-    
-    q = queue.Queue()
-    set_active_queue(q)
-
     try:
         print(f"Player Action: {player_text}")
-
-        def generate_response_backend():
-            try:
-                # Issue: Google GenAI stream() generator completely eats the text result if an AFC fired.
-                # Sending non-stream chat correctly returns the tool result output narrative to us.
-                resp = chat_session.send_message(player_text)
-                q.put({"type": "text_chunk", "text": resp.text})
-                q.put({"type": "done_internal"})
-            except Exception as e:
-                q.put({"type": "error", "error": str(e)})
-
-        t = threading.Thread(target=generate_response_backend)
-        t.start()
-
+        current_input = player_text
         dm_text_full = ""
+        
         while True:
-            item = q.get()
-            if item["type"] == "done_internal":
-                break
+            response = chat_session.send_message_stream(current_input)
+            function_calls = []
             
-            # Catch text to use to generate the scene image
-            if item.get("type") == "text_chunk":
-                dm_text_full += item.get("text", "")
+            for chunk in response:
+                if chunk.text:
+                    dm_text_full += chunk.text
+                    yield {"type": "text_chunk", "text": chunk.text}
+                if chunk.function_calls:
+                    function_calls.extend(chunk.function_calls)
+                    
+            if not function_calls:
+                break
                 
-            yield item
+            tool_responses = []
+            for fc in function_calls:
+                if fc.name == "roll_dice":
+                    res = roll_dice(**fc.args)
+                    ui_message = res.pop("ui_message", f">> **System**: Rolling dice...")
+                    yield {"type": "tool_call", "message": ui_message}
+                else:
+                    # Fallback trap: guarantee we always reply to an unexpected tool
+                    res = {"error": f"Tool {fc.name} not implemented."}
+                    yield {"type": "tool_call", "message": f">> **System**: Called unexpected tool `{fc.name}`"}
+                    
+                tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
+            
+            current_input = tool_responses
 
         yield {"type": "status", "message": "Synthesizing scene visuals..."}
 

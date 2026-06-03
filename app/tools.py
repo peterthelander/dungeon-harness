@@ -1,6 +1,5 @@
 import random
 from typing import Optional
-from app.state import get_active_queue
 
 def roll_dice(dice_type: int, modifier: int, purpose: str = "general", target_dc: Optional[int] = None) -> dict:
     """
@@ -18,24 +17,14 @@ def roll_dice(dice_type: int, modifier: int, purpose: str = "general", target_dc
     roll = random.randint(1, dice_type)
     total = roll + modifier
     
-    # Send a side-effect tool notification to the frontend
-    q = get_active_queue()
-    if q:
-        operator = "+" if modifier >= 0 else ""
-        msg = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
-        
-        if purpose and purpose.lower() != "general":
-            msg += f" (for *{purpose}*)"
-            
-        msg += f"...\n> Result: **{total}**"
-        
-        if target_dc is not None:
-             success = total >= target_dc
-             msg += f" {'(Success!)' if success else '(Failure)'} [DC: {target_dc}]"
-             
-        q.put({"type": "tool_call", "message": msg})
+    operator = "+" if modifier >= 0 else ""
+    msg = f"🎲 **Rolling d{dice_type} {operator}{modifier}**"
     
-    # We return the dictionary which the model will parse natively to describe the outcome.
+    if purpose and purpose.lower() != "general":
+        msg += f" (for *{purpose}*)"
+        
+    msg += f"...\n> Result: **{total}**"
+    
     result = {
         "roll": roll,
         "modifier": modifier,
@@ -44,7 +33,10 @@ def roll_dice(dice_type: int, modifier: int, purpose: str = "general", target_dc
     }
     
     if target_dc is not None:
+        success = total >= target_dc
+        msg += f" {'(Success!)' if success else '(Failure)'} [DC: {target_dc}]"
         result["target_dc"] = target_dc
-        result["success"] = total >= target_dc
-        
+        result["success"] = success
+         
+    result["ui_message"] = msg
     return result
