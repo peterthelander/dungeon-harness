@@ -88,6 +88,35 @@
             display: none;
         }
 
+        .preset-modules {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .preset-btn {
+            background-color: #2b3945;
+            color: var(--text-color);
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .preset-btn:hover {
+            background-color: #3b4a5a;
+            border-color: #666;
+        }
+
+        .preset-btn strong {
+            display: block;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+            color: white;
+        }
+
         /* ----------------------------------------------------
            DASHBOARD (The Game State)
            ---------------------------------------------------- */

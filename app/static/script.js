@@ -25,39 +25,67 @@
                     method: 'POST',
                     body: formData
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Inject the dynamic DM entry message generated from the PDF
-                    if (data.dm_text) {
-                        appendMessage(data.dm_text, 'dm');
-                    }
-
-                    // Show the initial generated image based on the intro text
-                    if (data.image_data) {
-                        const canvas = document.getElementById('image-canvas');
-                        const placeholder = document.getElementById('canvas-placeholder');
-                        
-                        canvas.src = data.image_data;
-                        canvas.style.display = "block";
-                        placeholder.style.display = "none";
-                    }
-
-                    // Success! Hide the overlay to reveal dashboard
-                    const overlay = document.getElementById('upload-overlay');
-                    overlay.style.opacity = '0';
-                    setTimeout(() => {
-                        overlay.style.display = 'none';
-                        document.getElementById('dashboard').style.display = 'flex';
-                    }, 500);
-                } else {
-                    alert("Initialization error: " + data.error);
-                    resetInitUI();
-                }
+                
+                await handleInitializationResponse(response);
             } catch (err) {
                 console.error(err);
                 alert("Could not connect to the engine.");
+                resetInitUI();
+            }
+        }
+        
+        async function loadUrl(url) {
+            const btn = document.getElementById('init-engine-btn');
+            const loadText = document.getElementById('loading-text');
+
+            // UI State change
+            btn.disabled = true;
+            btn.innerText = "Downloading & Preparing...";
+            loadText.style.display = "block";
+
+            try {
+                const response = await fetch('/load_url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                await handleInitializationResponse(response);
+            } catch (err) {
+                console.error(err);
+                alert("Could not connect to the engine.");
+                resetInitUI();
+            }
+        }
+
+        async function handleInitializationResponse(response) {
+            const data = await response.json();
+
+            if (response.ok) {
+                // Inject the dynamic DM entry message generated from the PDF
+                if (data.dm_text) {
+                    appendMessage(data.dm_text, 'dm');
+                }
+
+                // Show the initial generated image based on the intro text
+                if (data.image_data) {
+                    const canvas = document.getElementById('image-canvas');
+                    const placeholder = document.getElementById('canvas-placeholder');
+                    
+                    canvas.src = data.image_data;
+                    canvas.style.display = "block";
+                    placeholder.style.display = "none";
+                }
+
+                // Success! Hide the overlay to reveal dashboard
+                const overlay = document.getElementById('upload-overlay');
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'flex';
+                }, 500);
+            } else {
+                alert("Initialization error: " + data.error);
                 resetInitUI();
             }
         }

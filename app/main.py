@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, Response
 import os
 import json
+import urllib.request
+import urllib.parse
 
 from app.state import engine_state
 from app.engine import upload_pdf_and_init, process_action
@@ -35,6 +37,39 @@ def upload():
         })
     except Exception as e:
         print(f"Upload error: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.route('/load_url', methods=['POST'])
+def load_url():
+    """ Downloads a PDF module from a URL, uploads it to Gemini, and spins up a new DM session. """
+    data = request.json
+    url = data.get("url")
+    if not url:
+        return jsonify({"error": "No url provided"}), 400
+
+    filename = os.path.basename(urllib.parse.urlparse(url).path)
+    if not (filename.endswith(".pdf") or filename.endswith(".txt")):
+        filename += ".pdf"
+    
+    os.makedirs('/tmp', exist_ok=True)
+    temp_path = os.path.join('/tmp', filename)
+    
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response, open(temp_path, 'wb') as out_file:
+            out_file.write(response.read())
+            
+        dm_text, image_data = upload_pdf_and_init(temp_path, filename)
+        return jsonify({
+            "status": "Engine Initialized Successfully",
+            "dm_text": dm_text,
+            "image_data": image_data
+        })
+    except Exception as e:
+        print(f"URL load error: {e}")
         return jsonify({"error": str(e)}), 500
     finally:
         if os.path.exists(temp_path):
