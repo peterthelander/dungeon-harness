@@ -3,7 +3,7 @@ from typing import Optional
 
 def roll_dice(
     dice_type: int,
-    modifier: int,
+    modifier: int = 0,
     purpose: str = "general",
     target_dc: Optional[int] = None,
     roll_count: int = 1
@@ -13,7 +13,7 @@ def roll_dice(
     
     Args:
         dice_type: The number of sides on each die (e.g., 20 for a d20).
-        modifier: The static bonus or penalty applied to the roll.
+        modifier: The static bonus or penalty applied to the roll. Defaults to 0.
         purpose: A short description of what this roll is for (e.g., 'STR stat generation', 'Perception check').
         target_dc: The target Difficulty Class to meet or exceed for success. Omit this if the roll is not a pass/fail check (like rolling stats or tables).
         roll_count: Number of dice to roll (e.g., 3 for 3d6).
