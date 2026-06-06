@@ -138,8 +138,9 @@
             const chatBox = document.getElementById('chat-window');
             
             // Create the real-time DM markdown container
-            const msgDiv = document.createElement('div');
+            let msgDiv = document.createElement('div');
             msgDiv.classList.add('message', 'dm');
+            msgDiv.style.display = 'none';
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
             
@@ -175,6 +176,7 @@
                             
                             if (data.type === 'text_chunk') {
                                 fullText += data.text;
+                                msgDiv.style.display = '';
                                 msgDiv.innerHTML = marked.parse(fullText);
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             } 
@@ -184,8 +186,12 @@
                                 sysDiv.innerHTML = marked.parse(data.message);
                                 chatBox.appendChild(sysDiv);
                                 
-                                // Re-append DM message div to keep it at the very bottom
+                                // Reset the DM message div for any subsequent text
+                                msgDiv = document.createElement('div');
+                                msgDiv.classList.add('message', 'dm');
+                                msgDiv.style.display = 'none';
                                 chatBox.appendChild(msgDiv);
+                                fullText = "";
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             }
                             else if (data.type === 'status') {
