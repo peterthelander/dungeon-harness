@@ -3,17 +3,16 @@ import time
 import google.genai as genai
 from google.genai import types
 
-from app.state import engine_state
 from app.tools import roll_dice
 
 # Initialize the Gemini Client natively pulling from GEMINI_API_KEY
 client = genai.Client()
 
-def _generate_scene_image(dm_text: str) -> str:
+def _generate_scene_image(dm_text: str, session_state: dict) -> str:
     """ Helper to summarize the DM's text into a purely visual prompt and generate an image. """
     print("Extracting visual prompt from DM text...")
     
-    prev_visual_desc = engine_state.get("previous_visual_desc", "")
+    prev_visual_desc = session_state.get("previous_visual_desc", "")
     if prev_visual_desc:
         context_instruction = (
             "Here is the purely visual description of the PREVIOUS scene to help maintain consistency of the characters' appearances and the current environment:\n"
@@ -38,7 +37,7 @@ def _generate_scene_image(dm_text: str) -> str:
     )
     visual_desc = visual_desc_response.text.strip()
     
-    engine_state["previous_visual_desc"] = visual_desc
+    session_state["previous_visual_desc"] = visual_desc
     
     print("Generating scene thumbnail...")
     scene_prompt = f"A gorgeous, clean visual painting of a fantasy TTRPG landscape representing: {visual_desc}. Maintain visual continuity securely."
@@ -60,7 +59,7 @@ def _generate_scene_image(dm_text: str) -> str:
                 return f"data:{mime_type};base64,{b64_img}"
     return None
 
-def upload_pdf_and_init(temp_path: str, filename: str):
+def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """ Uploads standard PDF to Gemini File API and configures system instructions """
     print(f"Uploading {filename} to Gemini...")
     uploaded_pdf = client.files.upload(file=temp_path)
@@ -73,7 +72,7 @@ def upload_pdf_and_init(temp_path: str, filename: str):
     if uploaded_pdf.state.name == "FAILED":
         raise ValueError(f"Gemini failed to process the PDF: {uploaded_pdf.name}")
 
-    engine_state["latest_pdf"] = uploaded_pdf
+    session_state["latest_pdf"] = uploaded_pdf
 
     system_instruction = (
         "You are a human Dungeon Master (DM) playing a tabletop RPG with a friend. "
@@ -96,7 +95,7 @@ def upload_pdf_and_init(temp_path: str, filename: str):
     )
 
     print("Initializing Chat Session...")
-    engine_state["chat_session"] = client.chats.create(
+    session_state["chat_session"] = client.chats.create(
         model='gemini-2.5-flash',
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
@@ -106,7 +105,7 @@ def upload_pdf_and_init(temp_path: str, filename: str):
     )
     
     # Ground-truth DM intro message
-    initial_response = engine_state["chat_session"].send_message([
+    initial_response = session_state["chat_session"].send_message([
         "SYSTEM: A new player has joined the session. Here is the module PDF context. "
         "Please write a highly exciting and immersive opening announcement welcoming the brave adventurer to this specific adventure "
         "(hint at the lore and intrigue without spoilers). "
@@ -118,16 +117,16 @@ def upload_pdf_and_init(temp_path: str, filename: str):
     dm_text = initial_response.text
     image_data = None
     try:
-        image_data = _generate_scene_image(dm_text)
+        image_data = _generate_scene_image(dm_text, session_state)
     except Exception as img_err:
         print(f"Initial thumbnail generation skipped/failed: {img_err}")
         
     return dm_text, image_data
 
 
-def process_action(player_text: str):
+def process_action(player_text: str, session_state: dict):
     """The core execution loop for driving a player action synchronously as a pure generator."""
-    chat_session = engine_state.get("chat_session")
+    chat_session = session_state.get("chat_session")
     if not chat_session:
         yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
         return
@@ -170,7 +169,7 @@ def process_action(player_text: str):
 
         if dm_text_full.strip():
             try:
-                image_data = _generate_scene_image(dm_text_full)
+                image_data = _generate_scene_image(dm_text_full, session_state)
                 if image_data:
                     yield {"type": "image", "image_data": image_data}
             except Exception as img_err:
