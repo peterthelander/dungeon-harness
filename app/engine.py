@@ -64,8 +64,10 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         "as well as generating stats, HP, or random tables. Always use the 'purpose' parameter to describe what is being rolled. "
         "Only provide a 'target_dc' if the roll is an actual pass/fail check. "
         "Evaluate the results narratively based on the immediate action without time-skipping. "
-        "You have a tool named 'draw_scene'. You must invoke 'draw_scene' ONLY when a major narrative change, a new room entry, or a combat encounter occurs. "
-        "Do not call it for minor dialogue exchanges or routine rule tracking. "
+        "CRITICAL: You must invoke the 'draw_scene' tool immediately at the start of a campaign to set the visual tone. "
+        "You should also invoke it during character creation to show a portrait or thematic representation of the chosen class or race. "
+        "Be active and liberal with the camera! Whenever the player moves to a new room, opens a conspicuous chest, encounters a creature, or triggers a trap, "
+        "you MUST call 'draw_scene' so the player's canvas matches the state of the story. "
         "The 'visual_description' parameter must be a standalone, rich, purely visual prompt capturing the present framing, physical entities, environment, lighting, and action. "
         "Never include text labels or refer to past frames."
     )
@@ -83,10 +85,9 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     # Ground-truth DM intro message
     initial_response = session_state["chat_session"].send_message([
         "SYSTEM: A new player has joined the session. Here is the module PDF context. "
-        "Please write a highly exciting and immersive opening announcement welcoming the brave adventurer to this specific adventure "
-        "(hint at the lore and intrigue without spoilers). "
-        "END YOUR MESSAGE by asking the player if they are ready to answer the call, and STOP. "
-        "DO NOT begin character creation yet.",
+        "First, invoke your 'draw_scene' tool to generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
+        "Then, write an exciting and immersive opening announcement welcoming the adventurer. "
+        "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP.",
         uploaded_pdf
     ])
     
