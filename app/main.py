@@ -4,6 +4,10 @@ import json
 import urllib.request
 import urllib.parse
 import uuid
+import tempfile
+import ipaddress
+import socket
+from werkzeug.utils import secure_filename
 
 from app.state import get_or_create_session_state
 from app.engine import upload_pdf_and_init, process_action
@@ -18,6 +22,35 @@ def _get_session_state():
         session_id = str(uuid.uuid4())
         session["session_id"] = session_id
     return get_or_create_session_state(session_id)
+
+def _is_private_host(hostname: str) -> bool:
+    try:
+        addresses = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, None)}
+    except socket.gaierror:
+        return True
+
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return True
+    return False
+
+def _validate_remote_url(url: str):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return None, "Only http/https URLs are allowed."
+    if not parsed.hostname:
+        return None, "URL must include a hostname."
+    if _is_private_host(parsed.hostname):
+        return None, "Private or local network addresses are not allowed."
+    return parsed.geturl(), None
 
 @app.route('/')
 def serve_index():
@@ -36,7 +69,10 @@ def upload():
         return jsonify({"error": "No selected file"}), 400
 
     os.makedirs('/tmp', exist_ok=True)
-    temp_path = os.path.join('/tmp', file.filename)
+    safe_name = secure_filename(file.filename) or "module.pdf"
+    suffix = os.path.splitext(safe_name)[1] or ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, dir='/tmp', suffix=suffix) as temp_file:
+        temp_path = temp_file.name
     file.save(temp_path)
 
     try:
@@ -48,7 +84,7 @@ def upload():
         })
     except Exception as e:
         print(f"Upload error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to initialize engine from uploaded file."}), 500
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -63,15 +99,22 @@ def load_url():
     if not url:
         return jsonify({"error": "No url provided"}), 400
 
-    filename = os.path.basename(urllib.parse.urlparse(url).path)
+    validated_url, validation_error = _validate_remote_url(url)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
+
+    filename = secure_filename(os.path.basename(urllib.parse.urlparse(validated_url).path))
+    if not filename:
+        filename = "module.pdf"
     if not (filename.endswith(".pdf") or filename.endswith(".txt")):
         filename += ".pdf"
     
     os.makedirs('/tmp', exist_ok=True)
-    temp_path = os.path.join('/tmp', filename)
+    with tempfile.NamedTemporaryFile(delete=False, dir='/tmp', suffix=os.path.splitext(filename)[1]) as temp_file:
+        temp_path = temp_file.name
     
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(validated_url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response, open(temp_path, 'wb') as out_file:
             out_file.write(response.read())
             
@@ -83,7 +126,7 @@ def load_url():
         })
     except Exception as e:
         print(f"URL load error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to load and initialize module from URL."}), 500
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
