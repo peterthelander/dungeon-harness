@@ -3,7 +3,7 @@ from typing import Optional
 
 def roll_dice(
     dice_type: int,
-    modifier: int,
+    modifier: int = 0,
     purpose: str = "general",
     target_dc: Optional[int] = None,
     roll_count: int = 1
