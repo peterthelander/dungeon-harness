@@ -3,6 +3,8 @@
 
 Dungeon Harness is an experimental architectural exploration into building autonomous Tabletop RPG orchestration using lightweight, text-native state tracking and advanced multimodal models. 
 
+🎮 **Live Demo:** You can try out the deployed version of the game online here: [https://dungeon-harness.onrender.com/](https://dungeon-harness.onrender.com/)
+
 ## Engineering Philosophy
 
 Most AI game engines rely on rigid database schemas to track inventory, character stats, and world state. Dungeon Harness takes a radically different approach: **Zero-Schema State Tracking**.
