@@ -12,11 +12,23 @@ client = genai.Client()
 def _generate_scene_image(dm_text: str) -> str:
     """ Helper to summarize the DM's text into a purely visual prompt and generate an image. """
     print("Extracting visual prompt from DM text...")
+    
+    prev_visual_desc = engine_state.get("previous_visual_desc", "")
+    if prev_visual_desc:
+        context_instruction = (
+            "Here is the purely visual description of the PREVIOUS scene to help maintain consistency of the characters' appearances and the current environment:\n"
+            f"> {prev_visual_desc}\n\n"
+            "Based on the new narration below, write a new updated purely visual description. "
+            "Update the scenery, character poses, or lighting only if the narration implies a change (e.g., they moved to a new room or a creature appeared). "
+            "Keep the core character appearance details entirely consistent.\n\n"
+        )
+    else:
+        context_instruction = "Based on the following narration from a tabletop RPG session, write a very concise, purely visual description of the setting and action. "
+
     visual_prompt_instructions = (
-        "Based on the following narration from a tabletop RPG session, "
-        "write a very concise, purely visual description of the setting and action. "
+        f"{context_instruction}"
         "Do not include any character names, stats, dialogue, or non-visual abstract concepts. "
-        "Focus ONLY on the physical environment, lighting, atmosphere, and what can be physically seen.\n\n"
+        "Focus ONLY on the physical environment, character designs, lighting, atmosphere, and what can be physically seen.\n\n"
         f"Narration:\n{dm_text[:1500]}"
     )
     
@@ -26,8 +38,10 @@ def _generate_scene_image(dm_text: str) -> str:
     )
     visual_desc = visual_desc_response.text.strip()
     
+    engine_state["previous_visual_desc"] = visual_desc
+    
     print("Generating scene thumbnail...")
-    scene_prompt = f"A gorgeous, clean visual painting of a fantasy TTRPG landscape representing: {visual_desc}."
+    scene_prompt = f"A gorgeous, clean visual painting of a fantasy TTRPG landscape representing: {visual_desc}. Maintain visual continuity securely."
     
     image_result = client.models.generate_content(
         model='gemini-2.5-flash-image',
