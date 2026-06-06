@@ -1,14 +1,23 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, session
 import os
 import json
 import urllib.request
 import urllib.parse
+import uuid
 
-from app.state import engine_state
+from app.state import get_or_create_session_state
 from app.engine import upload_pdf_and_init, process_action
 
 # Initialize Flask app pointing to local static directory
 app = Flask(__name__, static_folder='static', static_url_path='')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dungeon-harness-local-secret')
+
+def _get_session_state():
+    session_id = session.get("session_id")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        session["session_id"] = session_id
+    return get_or_create_session_state(session_id)
 
 @app.route('/')
 def serve_index():
@@ -17,6 +26,8 @@ def serve_index():
 @app.route('/upload', methods=['POST'])
 def upload():
     """ Accepts a PDF module, uploads it to Gemini, and spins up a new DM chat session. """
+    session_state = _get_session_state()
+
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     
@@ -29,7 +40,7 @@ def upload():
     file.save(temp_path)
 
     try:
-        dm_text, image_data = upload_pdf_and_init(temp_path, file.filename)
+        dm_text, image_data = upload_pdf_and_init(temp_path, file.filename, session_state)
         return jsonify({
             "status": "Engine Initialized Successfully",
             "dm_text": dm_text,
@@ -45,6 +56,8 @@ def upload():
 @app.route('/load_url', methods=['POST'])
 def load_url():
     """ Downloads a PDF module from a URL, uploads it to Gemini, and spins up a new DM session. """
+    session_state = _get_session_state()
+
     data = request.json
     url = data.get("url")
     if not url:
@@ -62,7 +75,7 @@ def load_url():
         with urllib.request.urlopen(req) as response, open(temp_path, 'wb') as out_file:
             out_file.write(response.read())
             
-        dm_text, image_data = upload_pdf_and_init(temp_path, filename)
+        dm_text, image_data = upload_pdf_and_init(temp_path, filename, session_state)
         return jsonify({
             "status": "Engine Initialized Successfully",
             "dm_text": dm_text,
@@ -78,7 +91,8 @@ def load_url():
 @app.route('/action', methods=['POST'])
 def action():
     """ Validates action and returns NDJSON streaming response """
-    chat_session = engine_state.get("chat_session")
+    session_state = _get_session_state()
+    chat_session = session_state.get("chat_session")
     if not chat_session:
         return jsonify({"error": "Engine not initialized. Please upload a PDF first."}), 400
     
@@ -89,7 +103,7 @@ def action():
         return jsonify({"error": "No text provided"}), 400
 
     def generate():
-        for item in process_action(player_text):
+        for item in process_action(player_text, session_state):
             yield json.dumps(item) + "\n"
             if item.get("type") in ["done", "error"]:
                 break

@@ -1,16 +1,18 @@
 import queue
 
-engine_state = {
-    "chat_session": None,
-    "latest_pdf": None
-}
+engine_state = {}
 
-active_action_queue = None
+active_action_queues = {}
 
-def set_active_queue(q: queue.Queue):
-    global active_action_queue
-    active_action_queue = q
+def get_or_create_session_state(session_id: str):
+    return engine_state.setdefault(session_id, {
+        "chat_session": None,
+        "latest_pdf": None,
+        "previous_visual_desc": "",
+    })
 
-def get_active_queue():
-    global active_action_queue
-    return active_action_queue
+def set_active_queue(session_id: str, q: queue.Queue):
+    active_action_queues[session_id] = q
+
+def get_active_queue(session_id: str):
+    return active_action_queues.get(session_id)
