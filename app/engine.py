@@ -21,7 +21,7 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
         )
     )
     
-    if image_result.candidates and image_result.candidates[0].content.parts:
+    if image_result.candidates and image_result.candidates[0].content and image_result.candidates[0].content.parts:
         for part in image_result.candidates[0].content.parts:
             if part.inline_data:
                 raw_bytes = part.inline_data.data
@@ -66,8 +66,9 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         "Evaluate the results narratively based on the immediate action without time-skipping. "
         "CRITICAL: You must invoke the 'draw_scene' tool immediately at the start of a campaign to set the visual tone. "
         "You should also invoke it during character creation to show a portrait or thematic representation of the chosen class or race. "
-        "Be active and liberal with the camera! Whenever the player moves to a new room, opens a conspicuous chest, encounters a creature, or triggers a trap, "
-        "you MUST call 'draw_scene' so the player's canvas matches the state of the story. "
+        "Furthermore, you MUST call the 'draw_scene' tool on ALMOST EVERY OUT-OF-CHARACTER OR IN-CHARACTER TURN. "
+        "Be incredibly active and liberal with the camera! If the player performs an action (e.g., ordering a beer, casting a spell, picking a lock), moves to a new location, opens a conspicuous chest, encounters a creature, or triggers a trap, you MUST call 'draw_scene' so the player's canvas matches the updated state of the story. "
+        "The ONLY time you should skip calling 'draw_scene' is if you are engaged in a pure, back-and-forth verbal dialogue with an NPC or the DM in the exact same static visual setting as the previous turn. When in doubt, call the tool! "
         "The 'visual_description' parameter must be a standalone, rich, purely visual prompt capturing the present framing, physical entities, environment, lighting, and action. "
         "Never include text labels or refer to past frames."
     )
@@ -83,16 +84,49 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     )
     
     # Ground-truth DM intro message
-    initial_response = session_state["chat_session"].send_message([
+    initial_prompt = [
         "SYSTEM: A new player has joined the session. Here is the module PDF context. "
         "First, invoke your 'draw_scene' tool to generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
         "Then, write an exciting and immersive opening announcement welcoming the adventurer. "
         "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP.",
         uploaded_pdf
-    ])
+    ]
     
-    dm_text = initial_response.text
+    current_response = session_state["chat_session"].send_message(initial_prompt)
+    dm_text = ""
     image_data = None
+    
+    while True:
+        try:
+            # Safely check for text without triggering a warning on empty text parts
+            if current_response.candidates and current_response.candidates[0].content.parts:
+                for part in current_response.candidates[0].content.parts:
+                    if part.text:
+                        dm_text += part.text
+        except Exception:
+            pass
+            
+        if not current_response.function_calls:
+            break
+            
+        tool_responses = []
+        for fc in current_response.function_calls:
+            if fc.name == "roll_dice":
+                res = roll_dice(**fc.args)
+                res.pop("ui_message", "")
+            elif fc.name == "draw_scene":
+                visual_description = fc.args.get("visual_description", "")
+                res = draw_scene(visual_description=visual_description, session_state=session_state)
+                img = session_state.pop("latest_scene_image_data", None)
+                if img:
+                    image_data = img
+            else:
+                res = {"error": f"Tool {fc.name} not implemented."}
+                
+            tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
+            
+        current_response = session_state["chat_session"].send_message(tool_responses)
+        
     return dm_text, image_data
 
 
@@ -113,9 +147,15 @@ def process_action(player_text: str, session_state: dict):
             function_calls = []
             
             for chunk in response:
-                if chunk.text:
-                    dm_text_full += chunk.text
-                    yield {"type": "text_chunk", "text": chunk.text}
+                try:
+                    for part in chunk.candidates[0].content.parts:
+                        if getattr(part, "text", None):
+                            dm_text_full += part.text
+                            yield {"type": "text_chunk", "text": part.text}
+                except AttributeError:
+                    # Fallback safely if stream structure is weird
+                    pass
+
                 if chunk.function_calls:
                     function_calls.extend(chunk.function_calls)
                     
