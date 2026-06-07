@@ -230,7 +230,7 @@ def process_action(player_text: str, session_state: dict):
         yield {"type": "done"}
     except Exception as e:
         print(f"Action error: {e}")
-        yield {"type": "error", "error": str(e)}
+        yield {"type": "error", "error": "Action processing failed."}
     finally:
         if 'image_executor' in locals():
             image_executor.shutdown(wait=False)
