@@ -9,6 +9,8 @@ from app.tools import roll_dice
 # Initialize the Gemini Client natively pulling from GEMINI_API_KEY
 client = genai.Client()
 
+IMAGE_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
 def draw_scene(visual_description: str, session_state: dict) -> dict:
     """Generate a scene image from a direct visual description prompt."""
     print("Generating scene thumbnail...")
@@ -87,11 +89,9 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         "as well as generating stats, HP, or random tables. Always use the 'purpose' parameter to describe what is being rolled. "
         "Only provide a 'target_dc' if the roll is an actual pass/fail check. "
         "Evaluate the results narratively based on the immediate action without time-skipping. "
-        "CRITICAL: You must invoke the 'draw_scene' tool immediately at the start of a campaign to set the visual tone. "
-        "You should also invoke it during character creation to show a portrait or thematic representation of the chosen class or race. "
+        "CRITICAL: You must invoke the 'draw_scene' tool immediately at the start of a campaign to set the visual tone. You must also invoke it during character creation to visually represent the chosen class or race. "
         "Furthermore, you MUST call the 'draw_scene' tool on ALMOST EVERY OUT-OF-CHARACTER OR IN-CHARACTER TURN. "
-        "Be incredibly active and liberal with the camera! If the player performs an action (e.g., ordering a beer, casting a spell, picking a lock), moves to a new location, opens a conspicuous chest, encounters a creature, or triggers a trap, you MUST call 'draw_scene' so the player's canvas matches the updated state of the story. "
-        "The ONLY time you should skip calling 'draw_scene' is if you are engaged in a pure, back-and-forth verbal dialogue with an NPC or the DM in the exact same static visual setting as the previous turn. When in doubt, call the tool! "
+        "Be highly active and liberal with the camera! You must call 'draw_scene' on almost every out-of-character or in-character turn where the player performs a physical action, changes rooms, opens objects, encounters creatures, or triggers events. The only exception is a purely static verbal conversation with zero landscape shifts. "
         "The 'visual_description' parameter must be a standalone, rich, purely visual prompt capturing the present framing, physical entities, environment, lighting, and action. "
         "Never include text labels or refer to past frames."
     )
@@ -110,7 +110,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     initial_prompt = [
         uploaded_pdf,
         "SYSTEM: A new player has joined the session. Here is the module PDF context above. "
-        "First, invoke your 'draw_scene' tool to generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
+        "IMPORTANT: You must use the 'draw_scene' tool right away as your first operational step before writing the onboarding greeting text. Generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
         "Then, write an exciting and immersive opening announcement welcoming the adventurer. "
         "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP."
     ]
@@ -130,12 +130,13 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         except Exception as e:
             print(f"Warning: Failed to extract text during init (Exception: {e})")
             
-        print(f"Init loop: received {len(current_response.function_calls) if current_response.function_calls else 0} function calls, current dm_text length: {len(dm_text)}")
-        if not current_response.function_calls:
+        function_calls = getattr(current_response, 'function_calls', None) or []
+        print(f"Init loop: received {len(function_calls)} function calls, current dm_text length: {len(dm_text)}")
+        if not function_calls:
             break
             
         tool_responses = []
-        for fc in current_response.function_calls:
+        for fc in function_calls:
             print(f"Engine init processing tool call: {fc.name}")
             if fc.name == "roll_dice":
                 res = roll_dice(**fc.args)
@@ -172,7 +173,6 @@ def process_action(player_text: str, session_state: dict):
         current_input = player_text
         dm_text_full = ""
         pending_image_jobs = []
-        image_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         
         while True:
             response = chat_session.send_message_stream(current_input)
@@ -212,7 +212,7 @@ def process_action(player_text: str, session_state: dict):
                     yield {"type": "tool_call", "message": ui_message}
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
-                    future = image_executor.submit(_draw_scene_image_data, visual_description)
+                    future = IMAGE_EXECUTOR.submit(_draw_scene_image_data, visual_description)
                     pending_image_jobs.append({"future": future, "visual_description": visual_description})
                     res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
                 else:
@@ -236,6 +236,3 @@ def process_action(player_text: str, session_state: dict):
     except Exception as e:
         print(f"Action error: {e}")
         yield {"type": "error", "error": "Action processing failed."}
-    finally:
-        if 'image_executor' in locals():
-            image_executor.shutdown(wait=False)
