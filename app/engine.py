@@ -195,9 +195,7 @@ def process_action(player_text: str, session_state: dict):
                         yield {"type": "tool_call", "message": f">> **System**: Scene generation failed: {str(e)}"}
                     
             if not function_calls:
-                if not pending_image_jobs:
-                    break
-                continue
+                break
                 
             tool_responses = []
             for fc in function_calls:
