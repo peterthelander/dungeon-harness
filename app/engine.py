@@ -32,6 +32,24 @@ def _extract_text_and_image(current_response):
     return dm_text, image_data
 
 
+def _extract_function_calls(response):
+    function_calls = getattr(response, "function_calls", None) or []
+    if function_calls:
+        return list(function_calls)
+
+    extracted_calls = []
+    if (
+        response.candidates
+        and response.candidates[0].content
+        and response.candidates[0].content.parts
+    ):
+        for part in response.candidates[0].content.parts:
+            function_call = getattr(part, "function_call", None)
+            if function_call:
+                extracted_calls.append(function_call)
+    return extracted_calls
+
+
 def draw_scene(visual_description: str, session_state: dict) -> dict:
     """Generate a scene image from a direct visual description prompt."""
     logger.info("scene.render.start")
@@ -74,7 +92,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         except Exception as e:
             logger.warning("engine.init.extract.failed", extra={"error": str(e)})
 
-        function_calls = getattr(current_response, "function_calls", None) or []
+        function_calls = _extract_function_calls(current_response)
         if not function_calls:
             break
 
@@ -132,8 +150,7 @@ def process_action(player_text: str, session_state: dict):
                             dm_text_full += part.text
                             yield {"type": "text_chunk", "text": part.text}
 
-                if chunk.function_calls:
-                    function_calls.extend(chunk.function_calls)
+                function_calls.extend(_extract_function_calls(chunk))
 
                 completed_jobs = [job for job in pending_image_jobs if job["future"].done()]
                 for job in completed_jobs:
