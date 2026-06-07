@@ -1,5 +1,6 @@
 import base64
 import time
+import concurrent.futures
 import google.genai as genai
 from google.genai import types
 
@@ -30,6 +31,28 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
                 session_state["latest_scene_image_data"] = f"data:{mime_type};base64,{b64_img}"
                 break
     return {"status": "Scene successfully rendered on the player's canvas."}
+
+def _draw_scene_image_data(visual_description: str):
+    """Generate scene image data URI for async execution."""
+    scene_prompt = visual_description.strip()
+
+    image_result = client.models.generate_content(
+        model='gemini-2.5-flash-image',
+        contents=scene_prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+        )
+    )
+
+    if image_result.candidates and image_result.candidates[0].content and image_result.candidates[0].content.parts:
+        for part in image_result.candidates[0].content.parts:
+            if part.inline_data:
+                raw_bytes = part.inline_data.data
+                b64_img = base64.b64encode(raw_bytes).decode('utf-8')
+                mime_type = part.inline_data.mime_type or "image/jpeg"
+                return {"status": "Scene successfully rendered on the player's canvas."}, f"data:{mime_type};base64,{b64_img}"
+
+    return {"status": "Scene generation completed but no image data was returned."}, None
 
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """ Uploads standard PDF to Gemini File API and configures system instructions """
@@ -141,6 +164,8 @@ def process_action(player_text: str, session_state: dict):
         print(f"Player Action: {player_text}")
         current_input = player_text
         dm_text_full = ""
+        pending_image_jobs = []
+        image_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         
         while True:
             response = chat_session.send_message_stream(current_input)
@@ -158,9 +183,21 @@ def process_action(player_text: str, session_state: dict):
 
                 if chunk.function_calls:
                     function_calls.extend(chunk.function_calls)
+
+                completed_jobs = [job for job in pending_image_jobs if job["future"].done()]
+                for job in completed_jobs:
+                    pending_image_jobs.remove(job)
+                    try:
+                        _, image_data = job["future"].result()
+                        if image_data:
+                            yield {"type": "image", "image_data": image_data}
+                    except Exception as e:
+                        yield {"type": "tool_call", "message": f">> **System**: Scene generation failed: {str(e)}"}
                     
             if not function_calls:
-                break
+                if not pending_image_jobs:
+                    break
+                continue
                 
             tool_responses = []
             for fc in function_calls:
@@ -170,10 +207,9 @@ def process_action(player_text: str, session_state: dict):
                     yield {"type": "tool_call", "message": ui_message}
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
-                    res = draw_scene(visual_description=visual_description, session_state=session_state)
-                    image_data = session_state.pop("latest_scene_image_data", None)
-                    if image_data:
-                        yield {"type": "image", "image_data": image_data}
+                    future = image_executor.submit(_draw_scene_image_data, visual_description)
+                    pending_image_jobs.append({"future": future, "visual_description": visual_description})
+                    res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
                 else:
                     # Fallback trap: guarantee we always reply to an unexpected tool
                     res = {"error": f"Tool {fc.name} not implemented."}
@@ -183,7 +219,18 @@ def process_action(player_text: str, session_state: dict):
             
             current_input = tool_responses
 
+        for job in list(pending_image_jobs):
+            try:
+                _, image_data = job["future"].result()
+                if image_data:
+                    yield {"type": "image", "image_data": image_data}
+            except Exception as e:
+                yield {"type": "tool_call", "message": f">> **System**: Scene generation failed: {str(e)}"}
+
         yield {"type": "done"}
     except Exception as e:
         print(f"Action error: {e}")
         yield {"type": "error", "error": str(e)}
+    finally:
+        if 'image_executor' in locals():
+            image_executor.shutdown(wait=False)
