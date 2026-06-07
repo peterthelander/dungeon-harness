@@ -3,16 +3,48 @@ import socket
 import sys
 import types
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
 def load_main_module():
+    fake_flask = types.ModuleType("flask")
+
+    class FakeFlaskApp:
+        def __init__(self, *args, **kwargs):
+            self.secret_key = None
+
+        def route(self, *args, **kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
+
+        def send_static_file(self, filename):
+            return filename
+
+    fake_flask.Flask = FakeFlaskApp
+    fake_flask.request = SimpleNamespace(files={}, json={})
+    fake_flask.jsonify = lambda payload: payload
+    fake_flask.Response = lambda data, mimetype=None: {"data": data, "mimetype": mimetype}
+    fake_flask.session = {}
+
+    fake_werkzeug_utils = types.ModuleType("werkzeug.utils")
+    fake_werkzeug_utils.secure_filename = lambda name: name
+
     fake_engine = types.ModuleType("app.engine")
     fake_engine.upload_pdf_and_init = lambda *args, **kwargs: ("", None)
     fake_engine.process_action = lambda *args, **kwargs: iter([])
 
     sys.modules.pop("app.main", None)
-    with patch.dict(sys.modules, {"app.engine": fake_engine}):
+    with patch.dict(
+        sys.modules,
+        {
+            "flask": fake_flask,
+            "werkzeug.utils": fake_werkzeug_utils,
+            "app.engine": fake_engine,
+        },
+    ):
         main = importlib.import_module("app.main")
         return importlib.reload(main)
 
