@@ -108,13 +108,14 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     
     # Ground-truth DM intro message
     initial_prompt = [
-        "SYSTEM: A new player has joined the session. Here is the module PDF context. "
+        uploaded_pdf,
+        "SYSTEM: A new player has joined the session. Here is the module PDF context above. "
         "First, invoke your 'draw_scene' tool to generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
         "Then, write an exciting and immersive opening announcement welcoming the adventurer. "
-        "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP.",
-        uploaded_pdf
+        "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP."
     ]
     
+    print("Sending initial prompt to Gemini...")
     current_response = session_state["chat_session"].send_message(initial_prompt)
     dm_text = ""
     image_data = None
@@ -124,16 +125,18 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
             # Safely check for text without triggering a warning on empty text parts
             if current_response.candidates and current_response.candidates[0].content.parts:
                 for part in current_response.candidates[0].content.parts:
-                    if part.text:
+                    if getattr(part, "text", None):
                         dm_text += part.text
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Warning: Failed to extract text during init (Exception: {e})")
             
+        print(f"Init loop: received {len(current_response.function_calls) if current_response.function_calls else 0} function calls, current dm_text length: {len(dm_text)}")
         if not current_response.function_calls:
             break
             
         tool_responses = []
         for fc in current_response.function_calls:
+            print(f"Engine init processing tool call: {fc.name}")
             if fc.name == "roll_dice":
                 res = roll_dice(**fc.args)
                 res.pop("ui_message", "")
@@ -149,6 +152,10 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
             tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
             
         current_response = session_state["chat_session"].send_message(tool_responses)
+        
+    if not dm_text.strip():
+        print("Warning: Model failed to return introductory text. Using fallback.")
+        dm_text = "Welcome to the adventure! I am your AI Game Master. What do you do?"
         
     return dm_text, image_data
 
