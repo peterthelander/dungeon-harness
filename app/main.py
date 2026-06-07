@@ -171,7 +171,7 @@ def upload():
     file.save(temp_path)
 
     try:
-        logger.info("upload.start", extra={"request_id": request_id, "filename": safe_name})
+        logger.info("upload.start", extra={"request_id": request_id, "upload_filename": safe_name})
         dm_text, image_data = upload_pdf_and_init(temp_path, file.filename, session_state)
         return _json_ok(
             {

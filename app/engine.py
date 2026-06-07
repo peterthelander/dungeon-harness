@@ -50,7 +50,7 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
 
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """Uploads PDF to Gemini and initializes the game chat session."""
-    logger.info("engine.init.upload.start", extra={"filename": filename})
+    logger.info("engine.init.upload.start", extra={"upload_filename": filename})
     uploaded_pdf = model_client.upload_file(temp_path)
     uploaded_pdf = model_client.wait_for_file_processing(uploaded_pdf)
     session_state["latest_pdf"] = uploaded_pdf
