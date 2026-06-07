@@ -13,6 +13,7 @@ def load_main_module():
     class FakeFlaskApp:
         def __init__(self, *args, **kwargs):
             self.secret_key = None
+            self.config = {}
 
         def route(self, *args, **kwargs):
             def decorator(func):
