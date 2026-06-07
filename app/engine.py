@@ -34,28 +34,6 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
                 break
     return {"status": "Scene successfully rendered on the player's canvas."}
 
-def _draw_scene_image_data(visual_description: str):
-    """Generate scene image data URI for async execution."""
-    scene_prompt = visual_description.strip()
-
-    image_result = client.models.generate_content(
-        model='gemini-2.5-flash-image',
-        contents=scene_prompt,
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
-        )
-    )
-
-    if image_result.candidates and image_result.candidates[0].content and image_result.candidates[0].content.parts:
-        for part in image_result.candidates[0].content.parts:
-            if part.inline_data:
-                raw_bytes = part.inline_data.data
-                b64_img = base64.b64encode(raw_bytes).decode('utf-8')
-                mime_type = part.inline_data.mime_type or "image/jpeg"
-                return {"status": "Scene successfully rendered on the player's canvas."}, f"data:{mime_type};base64,{b64_img}"
-
-    return {"status": "Scene generation completed but no image data was returned."}, None
-
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """ Uploads standard PDF to Gemini File API and configures system instructions """
     print(f"Uploading {filename} to Gemini...")
@@ -122,11 +100,20 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     
     while True:
         try:
-            # Safely check for text without triggering a warning on empty text parts
-            if current_response.candidates and current_response.candidates[0].content.parts:
+            # Always process candidate payloads first so trailing tool turns don't drop text/image bytes.
+            if (
+                current_response.candidates
+                and current_response.candidates[0].content
+                and current_response.candidates[0].content.parts
+            ):
                 for part in current_response.candidates[0].content.parts:
                     if getattr(part, "text", None):
                         dm_text += part.text
+                    if getattr(part, "inline_data", None) and part.inline_data.data:
+                        raw_bytes = part.inline_data.data
+                        b64_img = base64.b64encode(raw_bytes).decode('utf-8')
+                        mime_type = part.inline_data.mime_type or "image/jpeg"
+                        image_data = f"data:{mime_type};base64,{b64_img}"
         except Exception as e:
             print(f"Warning: Failed to extract text during init (Exception: {e})")
             
@@ -173,20 +160,21 @@ def process_action(player_text: str, session_state: dict):
         current_input = player_text
         dm_text_full = ""
         pending_image_jobs = []
+
+        def _async_image_wrapper(visual_description: str, session_state: dict):
+            draw_scene(visual_description, session_state)
+            return session_state.pop("latest_scene_image_data", None)
         
         while True:
             response = chat_session.send_message_stream(current_input)
             function_calls = []
             
             for chunk in response:
-                try:
+                if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
                     for part in chunk.candidates[0].content.parts:
                         if getattr(part, "text", None):
                             dm_text_full += part.text
                             yield {"type": "text_chunk", "text": part.text}
-                except AttributeError:
-                    # Fallback safely if stream structure is weird
-                    pass
 
                 if chunk.function_calls:
                     function_calls.extend(chunk.function_calls)
@@ -195,7 +183,7 @@ def process_action(player_text: str, session_state: dict):
                 for job in completed_jobs:
                     pending_image_jobs.remove(job)
                     try:
-                        _, image_data = job["future"].result()
+                        image_data = job["future"].result()
                         if image_data:
                             yield {"type": "image", "image_data": image_data}
                     except Exception as e:
@@ -212,7 +200,7 @@ def process_action(player_text: str, session_state: dict):
                     yield {"type": "tool_call", "message": ui_message}
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
-                    future = IMAGE_EXECUTOR.submit(_draw_scene_image_data, visual_description)
+                    future = IMAGE_EXECUTOR.submit(_async_image_wrapper, visual_description, session_state)
                     pending_image_jobs.append({"future": future, "visual_description": visual_description})
                     res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
                 else:
@@ -226,7 +214,7 @@ def process_action(player_text: str, session_state: dict):
 
         for job in list(pending_image_jobs):
             try:
-                _, image_data = job["future"].result()
+                image_data = job["future"].result()
                 if image_data:
                     yield {"type": "image", "image_data": image_data}
             except Exception as e:
