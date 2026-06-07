@@ -143,7 +143,8 @@ def process_action(player_text: str, session_state: dict):
                         if image_data:
                             yield {"type": "image", "image_data": image_data}
                     except Exception as e:
-                        yield {"type": "tool_call", "message": f">> **System**: Scene generation failed: {str(e)}"}
+                        logger.warning("scene.render.async_failed", extra={"error": str(e)})
+                        yield {"type": "tool_call", "message": ">> **System**: Scene generation failed."}
 
             if not function_calls:
                 break
@@ -173,7 +174,8 @@ def process_action(player_text: str, session_state: dict):
                 if image_data:
                     yield {"type": "image", "image_data": image_data}
             except Exception as e:
-                yield {"type": "tool_call", "message": f">> **System**: Scene generation failed: {str(e)}"}
+                logger.warning("scene.render.finalize_failed", extra={"error": str(e)})
+                yield {"type": "tool_call", "message": ">> **System**: Scene generation failed."}
 
         logger.info("engine.action.complete", extra={"text_length": len(dm_text_full)})
         yield {"type": "done"}

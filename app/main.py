@@ -233,7 +233,12 @@ def load_url():
         )
     except ValueError as e:
         logger.warning("load_url.validation_failed", extra={"request_id": request_id, "error": str(e)})
-        return _json_error(str(e), 400, code="invalid_remote_file", request_id=request_id)
+        return _json_error(
+            "Remote file failed validation.",
+            400,
+            code="invalid_remote_file",
+            request_id=request_id,
+        )
     except Exception:
         logger.exception("load_url.failed", extra={"request_id": request_id})
         return _json_error(
@@ -266,6 +271,8 @@ def action():
 
     def generate():
         for item in process_action(player_text, session_state):
+            if item.get("type") == "error":
+                item = {"type": "error", "error": "Action processing failed."}
             yield json.dumps(item) + "\n"
             if item.get("type") in ["done", "error"]:
                 break
