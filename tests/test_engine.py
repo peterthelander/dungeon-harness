@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import sys
 import types
 import unittest
@@ -48,6 +49,12 @@ def make_chunk(text=None, function_calls=None, function_call_parts=None):
 class ProcessActionTests(unittest.TestCase):
     def setUp(self):
         self.engine = load_engine_module()
+
+    def test_model_facing_scene_tool_hides_server_session(self):
+        parameters = inspect.signature(self.engine.draw_scene_tool).parameters
+
+        self.assertEqual(self.engine.draw_scene_tool.__name__, "draw_scene")
+        self.assertEqual(list(parameters), ["visual_description"])
 
     def test_process_action_streams_text_chunks(self):
         chat_session = MagicMock()

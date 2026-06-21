@@ -66,8 +66,12 @@ def _log_empty_response(response) -> None:
     candidates = getattr(response, "candidates", None) or []
     finish_reasons = [str(getattr(candidate, "finish_reason", None)) for candidate in candidates]
     logger.warning(
-        "engine.init.empty_response",
-        extra={"candidate_count": len(candidates), "finish_reasons": finish_reasons},
+        "engine.init.empty_response candidates=%s finish_reasons=%s "
+        "prompt_feedback=%r usage_metadata=%r",
+        len(candidates),
+        finish_reasons,
+        getattr(response, "prompt_feedback", None),
+        getattr(response, "usage_metadata", None),
     )
 
 
@@ -95,6 +99,16 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
     return {"status": "Scene successfully rendered on the player's canvas."}
 
 
+def draw_scene_tool(visual_description: str) -> dict:
+    """Request a visual of the current scene for the player canvas."""
+    # This callable defines the schema exposed to Gemini. Rendering itself is
+    # performed by the server-side tool dispatcher, which owns session state.
+    return {"status": "Scene rendering request accepted."}
+
+
+draw_scene_tool.__name__ = "draw_scene"
+
+
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """Uploads PDF to Gemini and initializes the game chat session."""
     logger.info("engine.init.upload.start", extra={"upload_filename": filename})
@@ -103,7 +117,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     session_state["latest_pdf"] = uploaded_pdf
     session_state["chat_session"] = model_client.create_chat_session(
         system_instruction=build_system_instruction(),
-        tools=[roll_dice, draw_scene],
+        tools=[roll_dice, draw_scene_tool],
     )
 
     current_response = model_client.send_message(
