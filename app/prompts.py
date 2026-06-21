@@ -17,7 +17,7 @@ def build_system_instruction() -> str:
         "as well as generating stats, HP, or random tables. Always use the 'purpose' parameter to describe what is being rolled. "
         "Only provide a 'target_dc' if the roll is an actual pass/fail check. "
         "Evaluate the results narratively based on the immediate action without time-skipping. "
-        "CRITICAL: You must invoke the 'draw_scene' tool immediately at the start of a campaign to set the visual tone. You must also invoke it during character creation to visually represent the chosen class or race. "
+        "The server renders the opening campaign image separately, so do not call 'draw_scene' during the first onboarding greeting. You must invoke it during character creation to visually represent the chosen class or race. "
         "Furthermore, you MUST call the 'draw_scene' tool on ALMOST EVERY OUT-OF-CHARACTER OR IN-CHARACTER TURN. "
         "Be highly active and liberal with the camera! You must call 'draw_scene' on almost every out-of-character or in-character turn where the player performs a physical action, changes rooms, opens objects, encounters creatures, or triggers events. The only exception is a purely static verbal conversation with zero landscape shifts. "
         "The 'visual_description' parameter must be a standalone, rich, purely visual prompt capturing the present framing, physical entities, environment, lighting, and action. "
@@ -28,8 +28,7 @@ def build_system_instruction() -> str:
 def build_initial_prompt(uploaded_pdf):
     return [
         uploaded_pdf,
-        "SYSTEM: A new player has joined the session. Here is the module PDF context above. "
-        "IMPORTANT: You must use the 'draw_scene' tool right away as your first operational step before writing the onboarding greeting text. Generate an epic, intriguing teaser image of the adventure's landscape or central mystery to hook the player. "
-        "Then, write an exciting and immersive opening announcement welcoming the adventurer. "
+        "A new player has joined the session. Here is the module PDF context above. "
+        "For this first response, do not call any tools. Write an exciting, immersive opening announcement grounded in the document: name a distinctive location, threat, or hook from the module rather than giving a generic greeting. "
         "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP.",
     ]
