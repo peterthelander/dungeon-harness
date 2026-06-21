@@ -1,8 +1,9 @@
 from app.main import app
+from app.config import load_runtime_config
 
 def main():
-    # Run the dungeon harness. Be sure GEMINI_API_KEY is available in your shell.
-    app.run(debug=True, port=5000)
+    cfg = load_runtime_config()
+    app.run(debug=not cfg.is_production, port=5000)
 
 if __name__ == '__main__':
     main()

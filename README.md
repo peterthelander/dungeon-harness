@@ -20,7 +20,7 @@ To run Dungeon Harness locally, you will need to configure your environment and 
    ```bash
    export GEMINI_API_KEY="your-api-key-here"
    ```
-   For a production deployment, also set a long, random `FLASK_SECRET_KEY`, set `FLASK_ENV=production`, and serve the app over HTTPS with `FLASK_COOKIE_SECURE=true`.
+   For a production deployment, also set a long, random `FLASK_SECRET_KEY`, set `APP_ENV=production`, and serve the app over HTTPS with `FLASK_COOKIE_SECURE=true`.
 2. **Adventure PDF**: To play, you must provide your own standard 5e adventure module PDF (such as Matt Colville's '*The Delian Tomb*'). Start the application and use the local file selector to upload the PDF and initialize the game state.
 
 ## Running the Engine
