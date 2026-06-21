@@ -21,7 +21,16 @@ def roll_dice(
     Returns:
         dict: The result of the roll, the final total, and whether it was a success (if applicable).
     """
-    rolls = [random.randint(1, dice_type) for _ in range(max(1, roll_count))]
+    if not isinstance(dice_type, int) or not 2 <= dice_type <= 1000:
+        raise ValueError("dice_type must be an integer between 2 and 1000")
+    if not isinstance(roll_count, int) or not 1 <= roll_count <= 100:
+        raise ValueError("roll_count must be an integer between 1 and 100")
+    if not isinstance(modifier, int) or abs(modifier) > 1000:
+        raise ValueError("modifier must be an integer between -1000 and 1000")
+    if target_dc is not None and (not isinstance(target_dc, int) or abs(target_dc) > 10000):
+        raise ValueError("target_dc must be an integer between -10000 and 10000")
+
+    rolls = [random.randint(1, dice_type) for _ in range(roll_count)]
     base_total = sum(rolls)
     total = base_total + modifier
     

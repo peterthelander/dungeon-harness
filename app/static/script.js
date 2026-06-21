@@ -111,8 +111,8 @@
             const msgDiv = document.createElement('div');
             msgDiv.classList.add('message', role);
             
-            // Parse Markdown text natively with marked.js
-            msgDiv.innerHTML = marked.parse(text);
+            // Model and player text are untrusted; sanitize the rendered Markdown.
+            msgDiv.innerHTML = DOMPurify.sanitize(marked.parse(text));
             
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
@@ -155,7 +155,7 @@
 
                 if (!response.ok) {
                     const data = await response.json();
-                    msgDiv.innerHTML = "ERROR: " + data.error;
+                    msgDiv.textContent = "ERROR: " + data.error;
                 } else {
                     // Read the NDJSON stream
                     const reader = response.body.getReader();
@@ -177,13 +177,13 @@
                             if (data.type === 'text_chunk') {
                                 fullText += data.text;
                                 msgDiv.style.display = '';
-                                msgDiv.innerHTML = marked.parse(fullText);
+                                msgDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             } 
                             else if (data.type === 'tool_call') {
                                 const sysDiv = document.createElement('div');
                                 sysDiv.classList.add('message', 'system');
-                                sysDiv.innerHTML = marked.parse(data.message);
+                                sysDiv.innerHTML = DOMPurify.sanitize(marked.parse(data.message));
                                 chatBox.appendChild(sysDiv);
                                 
                                 // Reset the DM message div for any subsequent text
@@ -205,7 +205,7 @@
                                 placeholder.style.display = "none";
                             }
                             else if (data.type === 'error') {
-                                msgDiv.innerHTML += "<br/><b>ERROR:</b> " + data.error;
+                                msgDiv.append(document.createElement('br'), document.createTextNode("ERROR: " + data.error));
                             }
                             else if (data.type === 'done') {
                                 break;

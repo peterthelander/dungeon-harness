@@ -1,6 +1,7 @@
 import base64
 import time
 import concurrent.futures
+import threading
 import google.genai as genai
 from google.genai import types
 
@@ -10,6 +11,18 @@ from app.tools import roll_dice
 client = genai.Client()
 
 IMAGE_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+IMAGE_SLOTS = threading.BoundedSemaphore(value=4)
+
+FALLBACK_INTRO_TEXT = (
+    "The adventure is loaded, and the road ahead is waiting. "
+    "Tell me your character's name and what kind of hero you want to play."
+)
+
+FALLBACK_SCENE_PROMPT = (
+    "Cinematic fantasy tabletop-RPG opening scene: a lone lantern glows beside "
+    "a weathered road leading toward distant mountains at dusk, mysterious ruins "
+    "on the horizon, dramatic clouds, painterly realism, no words or labels."
+)
 
 def draw_scene(visual_description: str, session_state: dict) -> dict:
     """Generate a scene image from a direct visual description prompt."""
@@ -55,6 +68,31 @@ def _draw_scene_image_data(visual_description: str):
                 return {"status": "Scene successfully rendered on the player's canvas."}, f"data:{mime_type};base64,{b64_img}"
 
     return {"status": "Scene generation completed but no image data was returned."}, None
+
+def _extract_response_text(response) -> str:
+    """Extract text without relying on the SDK's convenience `.text` property."""
+    text_parts = []
+    for candidate in getattr(response, "candidates", None) or []:
+        for part in getattr(getattr(candidate, "content", None), "parts", None) or []:
+            if getattr(part, "text", None):
+                text_parts.append(part.text)
+    return "".join(text_parts)
+
+def _log_empty_response(context: str, response) -> None:
+    """Log enough metadata to diagnose safety/quota/model responses without dumping the PDF."""
+    candidates = getattr(response, "candidates", None) or []
+    finish_reasons = [str(getattr(candidate, "finish_reason", None)) for candidate in candidates]
+    print(
+        f"{context}: Gemini returned no text or tool calls "
+        f"(candidates={len(candidates)}, finish_reasons={finish_reasons}, "
+        f"prompt_feedback={getattr(response, 'prompt_feedback', None)})"
+    )
+
+def _run_scene_job(visual_description: str):
+    try:
+        return _draw_scene_image_data(visual_description)
+    finally:
+        IMAGE_SLOTS.release()
 
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """ Uploads standard PDF to Gemini File API and configures system instructions """
@@ -121,18 +159,13 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     image_data = None
     
     while True:
-        try:
-            # Safely check for text without triggering a warning on empty text parts
-            if current_response.candidates and current_response.candidates[0].content.parts:
-                for part in current_response.candidates[0].content.parts:
-                    if getattr(part, "text", None):
-                        dm_text += part.text
-        except Exception as e:
-            print(f"Warning: Failed to extract text during init (Exception: {e})")
+        dm_text += _extract_response_text(current_response)
             
         function_calls = getattr(current_response, 'function_calls', None) or []
         print(f"Init loop: received {len(function_calls)} function calls, current dm_text length: {len(dm_text)}")
         if not function_calls:
+            if not dm_text.strip():
+                _log_empty_response("Initialization response", current_response)
             break
             
         tool_responses = []
@@ -156,8 +189,17 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         
     if not dm_text.strip():
         print("Warning: Model failed to return introductory text. Using fallback.")
-        dm_text = "Welcome to the adventure! I am your AI Game Master. What do you do?"
-        
+        dm_text = FALLBACK_INTRO_TEXT
+
+    if image_data is None:
+        try:
+            _, image_data = _draw_scene_image_data(FALLBACK_SCENE_PROMPT)
+            if image_data is None:
+                print("Opening-scene fallback completed without image data.")
+        except Exception as error:
+            # A scene is decorative; never discard a successfully initialized game over it.
+            print(f"Opening-scene fallback failed: {error}")
+
     return dm_text, image_data
 
 
@@ -212,9 +254,12 @@ def process_action(player_text: str, session_state: dict):
                     yield {"type": "tool_call", "message": ui_message}
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
-                    future = IMAGE_EXECUTOR.submit(_draw_scene_image_data, visual_description)
-                    pending_image_jobs.append({"future": future, "visual_description": visual_description})
-                    res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
+                    if IMAGE_SLOTS.acquire(blocking=False):
+                        future = IMAGE_EXECUTOR.submit(_run_scene_job, visual_description)
+                        pending_image_jobs.append({"future": future, "visual_description": visual_description})
+                        res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
+                    else:
+                        res = {"status": "Scene generation skipped because the renderer is busy."}
                 else:
                     # Fallback trap: guarantee we always reply to an unexpected tool
                     res = {"error": f"Tool {fc.name} not implemented."}
