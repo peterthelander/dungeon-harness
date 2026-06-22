@@ -1,11 +1,15 @@
         let currentSuggestions = [];
 
+        function isFreeFormSuggestion(item) {
+            return ["other", "something else"].includes(item.toLowerCase().replace(/[.?!]/g, ''));
+        }
+
         function renderSuggestions(items) {
             const container = document.getElementById('suggestions');
             const uniqueItems = [...new Set((Array.isArray(items) ? items : [])
                 .filter((item) => typeof item === 'string')
                 .map((item) => item.trim())
-                .filter((item) => item && item.length <= 32))].slice(0, 4);
+                .filter((item) => item && item.length <= 32 && !isFreeFormSuggestion(item)))].slice(0, 4);
 
             currentSuggestions = uniqueItems;
             container.replaceChildren();

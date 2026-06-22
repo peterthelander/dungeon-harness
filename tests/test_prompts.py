@@ -18,6 +18,7 @@ class PromptTests(unittest.TestCase):
         self.assertIn("suggest_actions", instruction)
         self.assertIn("never begin the adventure early", instruction)
         self.assertIn("say 'Confirm' rather than 'Confirm character'", instruction)
+        self.assertIn("Never suggest generic labels", instruction)
 
 
 if __name__ == "__main__":

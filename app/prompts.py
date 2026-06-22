@@ -16,6 +16,7 @@ def build_system_instruction() -> str:
         "When there are two or more natural, safe next actions, call the 'suggest_actions' tool after your narrative with 2 to 4 distinct labels. "
         "Each label must be a concise player action, ideally one or two words and never over 32 characters. "
         "Use the shortest natural label: for example, say 'Confirm' rather than 'Confirm character'. "
+        "Never suggest generic labels such as 'Something else' or 'Other'; the player already has a free-form input for that. "
         "These are optional nudges, not a complete menu: do not use them to reveal secrets, hidden dangers, correct answers, future outcomes, game mechanics, or exhaustive choices. "
         "During onboarding, suggestions must answer the current onboarding question or confirmation step, never begin the adventure early. "
         "For example, after asking whether the player is ready, offer responses such as 'I'm ready', 'Tell me more', or 'Not yet'—not exploration or combat actions. "
