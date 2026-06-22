@@ -165,7 +165,9 @@
             // Disable input while resolving action
             inputField.disabled = true;
             btn.disabled = true;
-            btn.innerText = "DM Thinking...";
+            btn.textContent = "…";
+            btn.setAttribute("aria-label", "DM thinking");
+            btn.setAttribute("aria-busy", "true");
             renderSuggestions([]);
             setSuggestionsDisabled(true);
             
@@ -230,7 +232,8 @@
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             }
                             else if (data.type === 'status') {
-                                btn.innerText = data.message;
+                                btn.setAttribute("aria-label", data.message);
+                                btn.title = data.message;
                             }
                             else if (data.type === 'suggestions') {
                                 renderSuggestions(data.items);
@@ -259,7 +262,10 @@
                 // Re-enable inputs post-action
                 inputField.disabled = false;
                 btn.disabled = false;
-                btn.innerText = "Send";
+                btn.textContent = "↑";
+                btn.setAttribute("aria-label", "Send action");
+                btn.removeAttribute("aria-busy");
+                btn.title = "Send action";
                 if (usedSuggestion) {
                     inputField.blur();
                 } else {

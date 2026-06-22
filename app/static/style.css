@@ -221,13 +221,17 @@
             border: 1px solid #443322;
         }
 
+        #action-area {
+            flex: 0 0 auto;
+            background-color: var(--panel-bg);
+            border-top: 1px solid #333;
+        }
+
         #suggestions {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             padding: 10px 20px;
-            background-color: var(--panel-bg);
-            border-top: 1px solid #333;
         }
 
         #suggestions[hidden] {
@@ -236,12 +240,14 @@
 
         .suggestion-btn {
             min-height: 40px;
-            padding: 8px 14px;
+            padding: 7px 12px;
             border: 1px solid #6b4a28;
             border-radius: 999px;
             background: #332517;
             color: var(--text-color);
-            font: inherit;
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.2;
             cursor: pointer;
         }
 
@@ -260,19 +266,18 @@
         /* 8vh Bottom Input Bar */
         #input-footer {
             flex: 0 0 auto;
-            min-height: 68px;
-            background-color: var(--panel-bg);
+            min-height: 60px;
             display: flex;
             align-items: center;
             padding: 0 20px;
             padding-bottom: max(8px, env(safe-area-inset-bottom));
-            gap: 15px;
-            border-top: 1px solid #333;
+            gap: 10px;
         }
 
         #action-input {
             flex-grow: 1;
-            padding: 12px;
+            min-width: 0;
+            padding: 10px 12px;
             border: 1px solid #444;
             background-color: #2a2a2a;
             color: white;
@@ -289,9 +294,13 @@
             background-color: var(--accent);
             color: white;
             border: none;
-            padding: 12px 25px;
+            width: 44px;
+            height: 44px;
+            padding: 0;
             border-radius: 6px;
-            font-weight: bold;
+            font-size: 1.4rem;
+            font-weight: 600;
+            line-height: 1;
             cursor: pointer;
             transition: background 0.2s;
         }
@@ -305,10 +314,48 @@
             }
 
             #image-canvas-container {
-                flex: 0 0 45%;
-                min-height: 35%;
+                flex: 0 0 clamp(180px, 34dvh, 280px);
+                min-height: 180px;
                 border-right: none;
                 border-bottom: 2px solid #333;
+            }
+
+            #chat-window {
+                padding: 14px;
+                gap: 10px;
+            }
+
+            #action-area {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+            }
+
+            #suggestions,
+            #input-footer {
+                display: contents;
+            }
+
+            #suggestions[hidden] {
+                display: none;
+            }
+
+            .suggestion-btn {
+                min-height: 38px;
+                padding: 7px 11px;
+            }
+
+            #action-input {
+                flex: 1 1 190px;
+                min-height: 42px;
+            }
+
+            #send-action-btn {
+                flex: 0 0 42px;
+                width: 42px;
+                height: 42px;
             }
 
             .upload-container {
@@ -346,11 +393,6 @@
             #input-footer {
                 min-height: 58px;
                 padding: 6px 12px;
-            }
-
-            #suggestions {
-                padding: 8px 12px;
-                gap: 6px;
             }
 
             #action-input,

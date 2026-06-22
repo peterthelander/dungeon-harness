@@ -55,12 +55,14 @@
                 <!-- Initial DM message will be dynamically injected here upon upload -->
             </div>
 
-            <div id="suggestions" aria-label="Suggested actions" aria-live="polite" hidden></div>
+            <div id="action-area">
+                <div id="suggestions" aria-label="Suggested actions" aria-live="polite" hidden></div>
 
-            <!-- Action Input -->
-            <div id="input-footer">
-                <input type="text" id="action-input" placeholder="What do you do...?" onkeypress="handleKeyPress(event)" />
-                <button id="send-action-btn" onclick="sendAction()">Send</button>
+                <!-- Action Input -->
+                <div id="input-footer">
+                    <input type="text" id="action-input" placeholder="Something else?" onkeypress="handleKeyPress(event)" />
+                    <button id="send-action-btn" type="button" aria-label="Send action" title="Send action" onclick="sendAction()">↑</button>
+                </div>
             </div>
         </div>
     </div>

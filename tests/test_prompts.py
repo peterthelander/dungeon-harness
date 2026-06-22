@@ -17,6 +17,7 @@ class PromptTests(unittest.TestCase):
         self.assertIn("do not call 'draw_scene' during the first onboarding greeting", instruction)
         self.assertIn("suggest_actions", instruction)
         self.assertIn("never begin the adventure early", instruction)
+        self.assertIn("say 'Confirm' rather than 'Confirm character'", instruction)
 
 
 if __name__ == "__main__":
