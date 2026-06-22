@@ -314,8 +314,8 @@
             }
 
             #image-canvas-container {
-                flex: 0 0 clamp(180px, 34dvh, 280px);
-                min-height: 180px;
+                flex: 0 0 45%;
+                min-height: 35%;
                 border-right: none;
                 border-bottom: 2px solid #333;
             }
@@ -323,6 +323,11 @@
             #chat-window {
                 padding: 14px;
                 gap: 10px;
+            }
+
+            .message.dm {
+                max-width: 100%;
+                box-sizing: border-box;
             }
 
             #action-area {
