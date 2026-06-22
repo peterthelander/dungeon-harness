@@ -1,3 +1,32 @@
+        let currentSuggestions = [];
+
+        function renderSuggestions(items) {
+            const container = document.getElementById('suggestions');
+            const uniqueItems = [...new Set((Array.isArray(items) ? items : [])
+                .filter((item) => typeof item === 'string')
+                .map((item) => item.trim())
+                .filter((item) => item && item.length <= 32))].slice(0, 4);
+
+            currentSuggestions = uniqueItems;
+            container.replaceChildren();
+            container.hidden = uniqueItems.length === 0;
+
+            for (const item of uniqueItems) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'suggestion-btn';
+                button.textContent = item;
+                button.addEventListener('click', () => sendAction(item));
+                container.appendChild(button);
+            }
+        }
+
+        function setSuggestionsDisabled(disabled) {
+            document.querySelectorAll('.suggestion-btn').forEach((button) => {
+                button.disabled = disabled;
+            });
+        }
+
         // Start Initialization Request to the Backend
         async function initializeEngine() {
             const fileInput = document.getElementById('pdf-upload');
@@ -66,6 +95,7 @@
                 if (data.dm_text) {
                     appendMessage(data.dm_text, 'dm');
                 }
+                renderSuggestions(data.suggestions);
 
                 // Show the initial generated image based on the intro text
                 if (data.image_data) {
@@ -119,10 +149,12 @@
         }
 
         // Send Player text and execute backend thread
-        async function sendAction() {
+        async function sendAction(suggestedText = null) {
             const inputField = document.getElementById('action-input');
             const btn = document.getElementById('send-action-btn');
-            const text = inputField.value.trim();
+            const text = (suggestedText || inputField.value).trim();
+            const previousSuggestions = currentSuggestions;
+            const usedSuggestion = typeof suggestedText === 'string';
 
             if (!text) return;
 
@@ -134,6 +166,8 @@
             inputField.disabled = true;
             btn.disabled = true;
             btn.innerText = "DM Thinking...";
+            renderSuggestions([]);
+            setSuggestionsDisabled(true);
             
             const chatBox = document.getElementById('chat-window');
             
@@ -156,6 +190,7 @@
                 if (!response.ok) {
                     const data = await response.json();
                     msgDiv.textContent = "ERROR: " + data.error;
+                    renderSuggestions(previousSuggestions);
                 } else {
                     // Read the NDJSON stream
                     const reader = response.body.getReader();
@@ -197,6 +232,9 @@
                             else if (data.type === 'status') {
                                 btn.innerText = data.message;
                             }
+                            else if (data.type === 'suggestions') {
+                                renderSuggestions(data.items);
+                            }
                             else if (data.type === 'image') {
                                 const canvas = document.getElementById('image-canvas');
                                 const placeholder = document.getElementById('canvas-placeholder');
@@ -216,12 +254,17 @@
             } catch (err) {
                 console.error(err);
                 msgDiv.innerHTML = "CRITICAL: Failed to communicate with engine backend.";
+                renderSuggestions(previousSuggestions);
             } finally {
                 // Re-enable inputs post-action
                 inputField.disabled = false;
                 btn.disabled = false;
                 btn.innerText = "Send";
-                inputField.focus();
+                if (usedSuggestion) {
+                    inputField.blur();
+                } else {
+                    inputField.focus();
+                }
                 
                 // If DM message is empty after stream finishes (e.g. error or empty reply), remove it
                 if (!fullText.trim()) {

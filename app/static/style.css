@@ -221,6 +221,42 @@
             border: 1px solid #443322;
         }
 
+        #suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 20px;
+            background-color: var(--panel-bg);
+            border-top: 1px solid #333;
+        }
+
+        #suggestions[hidden] {
+            display: none;
+        }
+
+        .suggestion-btn {
+            min-height: 40px;
+            padding: 8px 14px;
+            border: 1px solid #6b4a28;
+            border-radius: 999px;
+            background: #332517;
+            color: var(--text-color);
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .suggestion-btn:hover,
+        .suggestion-btn:focus-visible {
+            border-color: var(--accent);
+            background: #49331f;
+            outline: none;
+        }
+
+        .suggestion-btn:disabled {
+            cursor: wait;
+            opacity: 0.55;
+        }
+
         /* 8vh Bottom Input Bar */
         #input-footer {
             flex: 0 0 auto;
@@ -310,6 +346,11 @@
             #input-footer {
                 min-height: 58px;
                 padding: 6px 12px;
+            }
+
+            #suggestions {
+                padding: 8px 12px;
+                gap: 6px;
             }
 
             #action-input,

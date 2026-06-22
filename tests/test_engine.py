@@ -56,6 +56,42 @@ class ProcessActionTests(unittest.TestCase):
         self.assertEqual(self.engine.draw_scene_tool.__name__, "draw_scene")
         self.assertEqual(list(parameters), ["visual_description"])
 
+    def test_normalize_suggestions_filters_invalid_and_duplicate_labels(self):
+        suggestions = self.engine._normalize_suggestions(
+            [" Listen ", "listen", "", 7, "A" * 33, "Open door", "Ask guard"]
+        )
+
+        self.assertEqual(suggestions, ["Listen", "Open door", "Ask guard"])
+
+    def test_process_action_streams_suggestions(self):
+        chat_session = MagicMock()
+        suggestions_fc = SimpleNamespace(
+            name="suggest_actions", args={"suggestions": ["Listen", "Inspect door"]}
+        )
+        chat_session.send_message_stream.side_effect = [
+            iter([make_chunk(text="A faint scrape echoes.", function_calls=[suggestions_fc])]),
+            iter([make_chunk()]),
+        ]
+        session_state = {"chat_session": chat_session}
+
+        events = list(self.engine.process_action("wait", session_state))
+
+        self.assertIn({"type": "suggestions", "items": ["Listen", "Inspect door"]}, events)
+
+    def test_process_action_recovers_suggestions_when_turn_omits_them(self):
+        chat_session = MagicMock()
+        recovery_fc = SimpleNamespace(
+            name="suggest_actions", args={"suggestions": ["Ask about it", "Take cover"]}
+        )
+        chat_session.send_message_stream.return_value = iter([make_chunk(text="The floor trembles.")])
+        chat_session.send_message.return_value = make_chunk(function_calls=[recovery_fc])
+        session_state = {"chat_session": chat_session}
+
+        events = list(self.engine.process_action("wait", session_state))
+
+        self.assertIn({"type": "suggestions", "items": ["Ask about it", "Take cover"]}, events)
+        self.assertEqual(chat_session.send_message.call_count, 2)
+
     def test_process_action_streams_text_chunks(self):
         chat_session = MagicMock()
         chat_session.send_message_stream.return_value = iter(
@@ -89,7 +125,7 @@ class ProcessActionTests(unittest.TestCase):
             {"type": "text_chunk", "text": "Let's begin your character creation."},
             events,
         )
-        chat_session.send_message.assert_called_once()
+        self.assertEqual(chat_session.send_message.call_count, 2)
 
     def test_process_action_intercepts_draw_scene_and_yields_image(self):
         chat_session = MagicMock()
@@ -151,13 +187,18 @@ class ProcessActionTests(unittest.TestCase):
             patch.object(self.engine.model_client, "upload_file", return_value=uploaded_pdf),
             patch.object(self.engine.model_client, "wait_for_file_processing", return_value=uploaded_pdf),
             patch.object(self.engine.model_client, "create_chat_session", return_value=chat_session),
-            patch.object(self.engine.model_client, "send_message", side_effect=[initial_response, followup_response]),
+            patch.object(
+                self.engine.model_client,
+                "send_message",
+                side_effect=[initial_response, followup_response, make_chunk()],
+            ),
             patch.object(self.engine, "draw_scene", side_effect=fake_draw_scene),
         ):
-            dm_text, image_data = self.engine.upload_pdf_and_init("/tmp/module.pdf", "module.pdf", session_state)
+            dm_text, image_data, suggestions = self.engine.upload_pdf_and_init("/tmp/module.pdf", "module.pdf", session_state)
 
         self.assertEqual(dm_text, "A ruined keep looms over the marsh. Are you ready to begin?")
         self.assertEqual(image_data, "data:image/png;base64,ruins")
+        self.assertEqual(suggestions, [])
         self.assertIs(session_state["chat_session"], chat_session)
 
 

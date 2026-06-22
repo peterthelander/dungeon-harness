@@ -23,6 +23,56 @@ FALLBACK_SCENE_PROMPT = (
     "a weathered road leading toward distant mountains at dusk, mysterious ruins "
     "on the horizon, dramatic clouds, painterly realism, no words or labels."
 )
+MAX_SUGGESTIONS = 4
+MAX_SUGGESTION_LENGTH = 32
+
+
+def _normalize_suggestions(raw_suggestions) -> list[str]:
+    """Return a small, safe-to-display set of unique action labels."""
+    if not isinstance(raw_suggestions, (list, tuple)):
+        return []
+
+    suggestions = []
+    seen = set()
+    for item in raw_suggestions:
+        if not isinstance(item, str):
+            continue
+        suggestion = " ".join(item.split())
+        if not suggestion or len(suggestion) > MAX_SUGGESTION_LENGTH:
+            continue
+        normalized = suggestion.casefold()
+        if normalized in seen:
+            continue
+        suggestions.append(suggestion)
+        seen.add(normalized)
+        if len(suggestions) == MAX_SUGGESTIONS:
+            break
+    return suggestions
+
+
+def _recover_suggestions(chat_session, prompt: str) -> list[str]:
+    """Request UI-only suggestions when a completed turn omitted them."""
+    try:
+        response = model_client.send_message(chat_session, prompt)
+        for function_call in _extract_function_calls(response):
+            if function_call.name != "suggest_actions":
+                continue
+            suggestions = _normalize_suggestions(function_call.args.get("suggestions"))
+            if not suggestions:
+                continue
+            model_client.send_message(
+                chat_session,
+                [
+                    types.Part.from_function_response(
+                        name="suggest_actions",
+                        response={"status": "Action suggestions displayed to the player."},
+                    )
+                ],
+            )
+            return suggestions
+    except Exception as error:
+        logger.warning("engine.suggestions.recovery_failed", extra={"error": str(error)})
+    return []
 
 
 def _extract_text_and_image(current_response):
@@ -109,6 +159,14 @@ def draw_scene_tool(visual_description: str) -> dict:
 draw_scene_tool.__name__ = "draw_scene"
 
 
+def suggest_actions_tool(suggestions: list[str]) -> dict:
+    """Offer a few short, spoiler-free action prompts for the player UI."""
+    return {"status": "Action suggestions accepted."}
+
+
+suggest_actions_tool.__name__ = "suggest_actions"
+
+
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     """Uploads PDF to Gemini and initializes the game chat session."""
     logger.info("engine.init.upload.start", extra={"upload_filename": filename})
@@ -117,7 +175,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     session_state["latest_pdf"] = uploaded_pdf
     session_state["chat_session"] = model_client.create_chat_session(
         system_instruction=build_system_instruction(),
-        tools=[roll_dice, draw_scene_tool],
+        tools=[roll_dice, draw_scene_tool, suggest_actions_tool],
     )
 
     current_response = model_client.send_message(
@@ -125,6 +183,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     )
     dm_text = ""
     image_data = None
+    suggestions = []
 
     while True:
         try:
@@ -153,6 +212,9 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
                 img = session_state.pop("latest_scene_image_data", None)
                 if img:
                     image_data = img
+            elif fc.name == "suggest_actions":
+                suggestions = _normalize_suggestions(fc.args.get("suggestions"))
+                res = {"status": "Action suggestions displayed to the player."}
             else:
                 res = {"error": f"Tool {fc.name} not implemented."}
 
@@ -171,7 +233,15 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 
-    return dm_text, image_data
+    if not suggestions:
+        suggestions = _recover_suggestions(
+            session_state["chat_session"],
+            "The opening invitation has just been shown without UI suggestions. "
+            "Call suggest_actions now with 2 or 3 short readiness responses only, "
+            "such as 'I'm ready', 'Tell me more', or 'Not yet'. Do not write any narrative.",
+        )
+
+    return dm_text, image_data, suggestions
 
 
 def process_action(player_text: str, session_state: dict):
@@ -194,6 +264,7 @@ def process_action(player_text: str, session_state: dict):
         stream_chunk_count = 0
         function_call_count = 0
         finish_reasons = []
+        latest_suggestions = None
 
         while True:
             response = model_client.send_message_stream(chat_session, current_input)
@@ -243,11 +314,17 @@ def process_action(player_text: str, session_state: dict):
                         res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
                     else:
                         res = {"status": "Scene generation skipped because the renderer is busy."}
+                elif fc.name == "suggest_actions":
+                    latest_suggestions = _normalize_suggestions(fc.args.get("suggestions"))
+                    res = {"status": "Action suggestions displayed to the player."}
                 else:
                     res = {"error": f"Tool {fc.name} not implemented."}
                     yield {"type": "tool_call", "message": f">> **System**: Called unexpected tool `{fc.name}`"}
 
                 tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
+
+            if latest_suggestions:
+                yield {"type": "suggestions", "items": latest_suggestions}
 
             current_input = tool_responses
 
@@ -287,6 +364,17 @@ def process_action(player_text: str, session_state: dict):
                 stream_chunk_count,
                 function_call_count,
             )
+
+        if not latest_suggestions:
+            recovered_suggestions = _recover_suggestions(
+                chat_session,
+                "Your immediately preceding Dungeon Master response was shown without action "
+                "suggestions. Call suggest_actions now with 2 to 4 concise, spoiler-free "
+                "next actions appropriate to that response. Do not write any narrative or "
+                "call any other tool.",
+            )
+            if recovered_suggestions:
+                yield {"type": "suggestions", "items": recovered_suggestions}
         yield {"type": "done"}
     except Exception as e:
         logger.exception("engine.action.failed", extra={"error": str(e)})

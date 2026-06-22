@@ -209,12 +209,13 @@ def upload():
         if not _looks_like_pdf(temp_path):
             return _json_error("Uploaded file is not a valid PDF.", 400, request_id=request_id)
         logger.info("upload.start", extra={"request_id": request_id, "upload_filename": safe_name})
-        dm_text, image_data = upload_pdf_and_init(temp_path, file.filename, session_state)
+        dm_text, image_data, suggestions = upload_pdf_and_init(temp_path, file.filename, session_state)
         return _json_ok(
             {
                 "status": "Engine Initialized Successfully",
                 "dm_text": dm_text,
                 "image_data": image_data,
+                "suggestions": suggestions,
             },
             request_id,
         )
@@ -261,12 +262,13 @@ def load_url():
         _download_remote_file(validated_url, temp_path)
         if not _looks_like_pdf(temp_path):
             return _json_error("Remote file is not a valid PDF.", 400, request_id=request_id)
-        dm_text, image_data = upload_pdf_and_init(temp_path, filename, session_state)
+        dm_text, image_data, suggestions = upload_pdf_and_init(temp_path, filename, session_state)
         return _json_ok(
             {
                 "status": "Engine Initialized Successfully",
                 "dm_text": dm_text,
                 "image_data": image_data,
+                "suggestions": suggestions,
             },
             request_id,
         )

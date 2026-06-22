@@ -13,6 +13,12 @@ def build_system_instruction() -> str:
         "2. Once they react, begin character creation. Present options or generate a character, and explicitly WAIT for their confirmation.\n"
         "3. Only after the character is confirmed, reveal starting rumors or immediate hooks to begin the adventure.\n"
         "ALWAYS end your turn by explicitly asking the player what they want to do or how they react, and then STOP. "
+        "When there are two or more natural, safe next actions, call the 'suggest_actions' tool after your narrative with 2 to 4 distinct labels. "
+        "Each label must be a concise player action, ideally one to five words and never over 32 characters. "
+        "These are optional nudges, not a complete menu: do not use them to reveal secrets, hidden dangers, correct answers, future outcomes, game mechanics, or exhaustive choices. "
+        "During onboarding, suggestions must answer the current onboarding question or confirmation step, never begin the adventure early. "
+        "For example, after asking whether the player is ready, offer responses such as 'I'm ready', 'Tell me more', or 'Not yet'—not exploration or combat actions. "
+        "Do not call it when useful suggestions would spoil the situation or none are natural. "
         "You MUST call the 'roll_dice' tool for any mechanical checks (attacks, skill checks, saving throws), "
         "as well as generating stats, HP, or random tables. Always use the 'purpose' parameter to describe what is being rolled. "
         "Only provide a 'target_dc' if the roll is an actual pass/fail check. "
@@ -29,6 +35,8 @@ def build_initial_prompt(uploaded_pdf):
     return [
         uploaded_pdf,
         "A new player has joined the session. Here is the module PDF context above. "
-        "For this first response, do not call any tools. Write an exciting, immersive opening announcement grounded in the document: name a distinctive location, threat, or hook from the module rather than giving a generic greeting. "
+        "For this first response, do not call dice or scene-rendering tools. Write an exciting, immersive opening announcement grounded in the document: name a distinctive location, threat, or hook from the module rather than giving a generic greeting. "
+        "Call 'suggest_actions' after the announcement with 2 or 3 short readiness responses only, such as 'I'm ready', 'Tell me more', or 'Not yet'. "
+        "Do not suggest entering, examining, listening, fighting, or any other in-world action until character creation is confirmed. "
         "End by asking them if they are ready to begin the adventure (doesn't have to be those exact words), and STOP.",
     ]
