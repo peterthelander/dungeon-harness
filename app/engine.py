@@ -182,23 +182,38 @@ def process_action(player_text: str, session_state: dict):
         return
 
     try:
-        logger.info("engine.action.start")
+        player_preview = " ".join(player_text.split())[:240]
+        logger.info(
+            "engine.action.start text_length=%s text_preview=%r",
+            len(player_text),
+            player_preview,
+        )
         current_input = player_text
         dm_text_full = ""
         pending_image_jobs = []
+        stream_chunk_count = 0
+        function_call_count = 0
+        finish_reasons = []
 
         while True:
             response = model_client.send_message_stream(chat_session, current_input)
             function_calls = []
 
             for chunk in response:
+                stream_chunk_count += 1
                 if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
                     for part in chunk.candidates[0].content.parts:
                         if getattr(part, "text", None):
                             dm_text_full += part.text
                             yield {"type": "text_chunk", "text": part.text}
 
-                function_calls.extend(_extract_function_calls(chunk))
+                for candidate in getattr(chunk, "candidates", None) or []:
+                    if getattr(candidate, "finish_reason", None) is not None:
+                        finish_reasons.append(str(candidate.finish_reason))
+
+                chunk_function_calls = _extract_function_calls(chunk)
+                function_calls.extend(chunk_function_calls)
+                function_call_count += len(chunk_function_calls)
 
                 completed_jobs = [job for job in pending_image_jobs if job["future"].done()]
                 for job in completed_jobs:
@@ -245,7 +260,33 @@ def process_action(player_text: str, session_state: dict):
                 logger.warning("scene.render.finalize_failed", extra={"error": str(e)})
                 yield {"type": "tool_call", "message": ">> **System**: Scene generation failed."}
 
-        logger.info("engine.action.complete", extra={"text_length": len(dm_text_full)})
+        if not dm_text_full and function_call_count == 0:
+            logger.warning(
+                "engine.action.empty_response chunks=%s finish_reasons=%s",
+                stream_chunk_count,
+                finish_reasons,
+            )
+            recovery_prompt = (
+                "Continue the tabletop-RPG conversation now. The player just said "
+                f"{player_text!r}. Give a concrete, short Dungeon Master response based "
+                "on the adventure context. Do not mention this recovery instruction and "
+                "do not call tools in this response."
+            )
+            recovery_response = model_client.send_message(chat_session, recovery_prompt)
+            recovery_text, _ = _extract_text_and_image(recovery_response)
+            if recovery_text:
+                dm_text_full = recovery_text
+                logger.info("engine.action.recovery_succeeded text_length=%s", len(recovery_text))
+                yield {"type": "text_chunk", "text": recovery_text}
+            else:
+                logger.warning("engine.action.recovery_empty")
+        else:
+            logger.info(
+                "engine.action.complete text_length=%s chunks=%s function_calls=%s",
+                len(dm_text_full),
+                stream_chunk_count,
+                function_call_count,
+            )
         yield {"type": "done"}
     except Exception as e:
         logger.exception("engine.action.failed", extra={"error": str(e)})

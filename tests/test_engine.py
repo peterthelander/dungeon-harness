@@ -77,6 +77,20 @@ class ProcessActionTests(unittest.TestCase):
             ],
         )
 
+    def test_process_action_recovers_from_empty_stream_with_non_streaming_response(self):
+        chat_session = MagicMock()
+        chat_session.send_message_stream.return_value = iter([make_chunk()])
+        chat_session.send_message.return_value = make_chunk(text="Let's begin your character creation.")
+        session_state = {"chat_session": chat_session}
+
+        events = list(self.engine.process_action("yes", session_state))
+
+        self.assertIn(
+            {"type": "text_chunk", "text": "Let's begin your character creation."},
+            events,
+        )
+        chat_session.send_message.assert_called_once()
+
     def test_process_action_intercepts_draw_scene_and_yields_image(self):
         chat_session = MagicMock()
         draw_scene_fc = SimpleNamespace(name="draw_scene", args={"visual_description": "misty dungeon hall"})
