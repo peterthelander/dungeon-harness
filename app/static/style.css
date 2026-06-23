@@ -221,46 +221,28 @@
             border: 1px solid #443322;
         }
 
-        #action-area {
-            flex: 0 0 auto;
-            background-color: var(--panel-bg);
-            border-top: 1px solid #333;
-        }
-
-        #suggestions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 10px 20px;
-        }
-
-        #suggestions[hidden] {
-            display: none;
-        }
-
-        .suggestion-btn {
-            min-height: 40px;
-            padding: 7px 12px;
-            border: 1px solid #6b4a28;
-            border-radius: 999px;
-            background: #332517;
-            color: var(--text-color);
-            font-family: inherit;
-            font-size: 0.95rem;
-            line-height: 1.2;
+        .message.dm .inline-action {
+            appearance: none;
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: #f0bd78;
+            font: inherit;
+            text-decoration: underline;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
             cursor: pointer;
         }
 
-        .suggestion-btn:hover,
-        .suggestion-btn:focus-visible {
-            border-color: var(--accent);
-            background: #49331f;
-            outline: none;
+        .message.dm .inline-action:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
         }
 
-        .suggestion-btn:disabled {
-            cursor: wait;
-            opacity: 0.55;
+        .message.dm .inline-action--inactive {
+            color: inherit;
+            cursor: default;
+            text-decoration: none;
         }
 
         /* 8vh Bottom Input Bar */
@@ -269,9 +251,11 @@
             min-height: 60px;
             display: flex;
             align-items: center;
+            background-color: var(--panel-bg);
             padding: 0 20px;
             padding-bottom: max(8px, env(safe-area-inset-bottom));
             gap: 10px;
+            border-top: 1px solid #333;
         }
 
         #action-input {
@@ -330,33 +314,10 @@
                 box-sizing: border-box;
             }
 
-            #action-area {
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 8px;
-                padding: 8px 12px max(8px, env(safe-area-inset-bottom));
-            }
-
-            #suggestions {
-                display: contents;
-            }
-
-            #suggestions[hidden] {
-                display: none;
-            }
-
-            .suggestion-btn {
-                min-height: 38px;
-                padding: 7px 11px;
-            }
-
             #input-footer {
                 display: flex;
-                flex: 1 1 100%;
-                min-width: 0;
-                min-height: 42px;
-                padding: 0;
+                min-height: 58px;
+                padding: 6px 12px;
                 gap: 8px;
             }
 

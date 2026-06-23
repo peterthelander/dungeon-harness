@@ -24,7 +24,7 @@ FALLBACK_SCENE_PROMPT = (
     "on the horizon, dramatic clouds, painterly realism, no words or labels."
 )
 MAX_SUGGESTIONS = 4
-MAX_SUGGESTION_LENGTH = 32
+MAX_SUGGESTION_LENGTH = 80
 
 
 def _normalize_suggestions(raw_suggestions) -> list[str]:
@@ -50,8 +50,18 @@ def _normalize_suggestions(raw_suggestions) -> list[str]:
     return suggestions
 
 
+def _suggestions_in_text(suggestions: list[str], text: str) -> list[str]:
+    """Keep only suggestions that can be linked to visible DM text."""
+    normalized_text = " ".join(text.split()).casefold()
+    return [
+        suggestion
+        for suggestion in suggestions
+        if " ".join(suggestion.split()).casefold() in normalized_text
+    ]
+
+
 def _recover_suggestions(chat_session, prompt: str) -> list[str]:
-    """Request UI-only suggestions when a completed turn omitted them."""
+    """Ask the model to identify linkable phrases already shown to the player."""
     try:
         response = model_client.send_message(chat_session, prompt)
         for function_call in _extract_function_calls(response):
@@ -214,7 +224,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
                     image_data = img
             elif fc.name == "suggest_actions":
                 suggestions = _normalize_suggestions(fc.args.get("suggestions"))
-                res = {"status": "Action suggestions displayed to the player."}
+                res = {"status": "Matching phrases will be linked in the player UI."}
             else:
                 res = {"error": f"Tool {fc.name} not implemented."}
 
@@ -233,13 +243,15 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 
+    suggestions = _suggestions_in_text(suggestions, dm_text)
     if not suggestions:
-        suggestions = _recover_suggestions(
+        recovered_suggestions = _recover_suggestions(
             session_state["chat_session"],
-            "The opening invitation has just been shown without UI suggestions. "
-            "Call suggest_actions now with 2 or 3 short readiness responses only, "
-            "such as 'I'm ready', 'Tell me more', or 'Not yet'. Do not write any narrative.",
+            "The opening invitation is already shown. Call suggest_actions now with 2 or 3 "
+            "natural readiness phrases that appear verbatim in that text. Do not write any "
+            "narrative or call another tool.",
         )
+        suggestions = _suggestions_in_text(recovered_suggestions, dm_text)
 
     return dm_text, image_data, suggestions
 
@@ -323,9 +335,6 @@ def process_action(player_text: str, session_state: dict):
 
                 tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
 
-            if latest_suggestions:
-                yield {"type": "suggestions", "items": latest_suggestions}
-
             current_input = tool_responses
 
         for job in list(pending_image_jobs):
@@ -365,16 +374,17 @@ def process_action(player_text: str, session_state: dict):
                 function_call_count,
             )
 
-        if not latest_suggestions:
+        inline_suggestions = _suggestions_in_text(latest_suggestions or [], dm_text_full)
+        if not inline_suggestions:
             recovered_suggestions = _recover_suggestions(
                 chat_session,
-                "Your immediately preceding Dungeon Master response was shown without action "
-                "suggestions. Call suggest_actions now with 2 to 4 concise, spoiler-free "
-                "next actions appropriate to that response. Do not write any narrative or "
-                "call any other tool.",
+                "Your immediately preceding Dungeon Master response is already shown. Call "
+                "suggest_actions now with 2 to 4 natural, spoiler-free action phrases that "
+                "appear verbatim in that response. Do not write any narrative or call another tool.",
             )
-            if recovered_suggestions:
-                yield {"type": "suggestions", "items": recovered_suggestions}
+            inline_suggestions = _suggestions_in_text(recovered_suggestions, dm_text_full)
+        if inline_suggestions:
+            yield {"type": "suggestions", "items": inline_suggestions}
         yield {"type": "done"}
     except Exception as e:
         logger.exception("engine.action.failed", extra={"error": str(e)})

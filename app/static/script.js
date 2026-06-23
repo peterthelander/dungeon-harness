@@ -1,34 +1,54 @@
-        let currentSuggestions = [];
+        let actionInProgress = false;
 
-        function isFreeFormSuggestion(item) {
-            return ["other", "something else"].includes(item.toLowerCase().replace(/[.?!]/g, ''));
+        function deactivateInlineActions() {
+            document.querySelectorAll('.inline-action').forEach((link) => {
+                link.classList.add('inline-action--inactive');
+                link.setAttribute('aria-disabled', 'true');
+            });
         }
 
-        function renderSuggestions(items) {
-            const container = document.getElementById('suggestions');
+        function linkifyFirstPhrase(messageElement, phrase) {
+            const phraseLower = phrase.toLocaleLowerCase();
+            const walker = document.createTreeWalker(messageElement, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    if (!node.parentElement || node.parentElement.closest('a, button')) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return node.nodeValue.toLocaleLowerCase().includes(phraseLower)
+                        ? NodeFilter.FILTER_ACCEPT
+                        : NodeFilter.FILTER_REJECT;
+                }
+            });
+            const textNode = walker.nextNode();
+            if (!textNode) return false;
+
+            const text = textNode.nodeValue;
+            const start = text.toLocaleLowerCase().indexOf(phraseLower);
+            const fragment = document.createDocumentFragment();
+            fragment.append(text.slice(0, start));
+
+            const link = document.createElement('button');
+            link.type = 'button';
+            link.className = 'inline-action';
+            link.textContent = text.slice(start, start + phrase.length);
+            link.setAttribute('aria-label', `Choose ${phrase}`);
+            link.addEventListener('click', () => {
+                if (!actionInProgress) sendAction(phrase);
+            });
+            fragment.append(link, text.slice(start + phrase.length));
+            textNode.replaceWith(fragment);
+            return true;
+        }
+
+        function linkifySuggestions(messageElement, items) {
             const uniqueItems = [...new Set((Array.isArray(items) ? items : [])
                 .filter((item) => typeof item === 'string')
                 .map((item) => item.trim())
-                .filter((item) => item && item.length <= 32 && !isFreeFormSuggestion(item)))].slice(0, 4);
+                .filter((item) => item && item.length <= 80))].slice(0, 4);
+            if (!uniqueItems.length) return;
 
-            currentSuggestions = uniqueItems;
-            container.replaceChildren();
-            container.hidden = uniqueItems.length === 0;
-
-            for (const item of uniqueItems) {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'suggestion-btn';
-                button.textContent = item;
-                button.addEventListener('click', () => sendAction(item));
-                container.appendChild(button);
-            }
-        }
-
-        function setSuggestionsDisabled(disabled) {
-            document.querySelectorAll('.suggestion-btn').forEach((button) => {
-                button.disabled = disabled;
-            });
+            deactivateInlineActions();
+            uniqueItems.forEach((item) => linkifyFirstPhrase(messageElement, item));
         }
 
         // Start Initialization Request to the Backend
@@ -97,9 +117,9 @@
             if (response.ok) {
                 // Inject the dynamic DM entry message generated from the PDF
                 if (data.dm_text) {
-                    appendMessage(data.dm_text, 'dm');
+                    const initialMessage = appendMessage(data.dm_text, 'dm');
+                    linkifySuggestions(initialMessage, data.suggestions);
                 }
-                renderSuggestions(data.suggestions);
 
                 // Show the initial generated image based on the intro text
                 if (data.image_data) {
@@ -150,6 +170,7 @@
             
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll to bottom
+            return msgDiv;
         }
 
         // Send Player text and execute backend thread
@@ -157,10 +178,10 @@
             const inputField = document.getElementById('action-input');
             const btn = document.getElementById('send-action-btn');
             const text = (suggestedText || inputField.value).trim();
-            const previousSuggestions = currentSuggestions;
             const usedSuggestion = typeof suggestedText === 'string';
 
-            if (!text) return;
+            if (!text || actionInProgress) return;
+            actionInProgress = true;
 
             // Optimistic player text rendering
             appendMessage(text, 'player');
@@ -172,8 +193,7 @@
             btn.textContent = "…";
             btn.setAttribute("aria-label", "DM thinking");
             btn.setAttribute("aria-busy", "true");
-            renderSuggestions([]);
-            setSuggestionsDisabled(true);
+            deactivateInlineActions();
             
             const chatBox = document.getElementById('chat-window');
             
@@ -185,6 +205,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
             
             let fullText = "";
+            let inlineSuggestions = [];
 
             try {
                 const response = await fetch('/action', {
@@ -196,7 +217,6 @@
                 if (!response.ok) {
                     const data = await response.json();
                     msgDiv.textContent = "ERROR: " + data.error;
-                    renderSuggestions(previousSuggestions);
                 } else {
                     // Read the NDJSON stream
                     const reader = response.body.getReader();
@@ -219,6 +239,7 @@
                                 fullText += data.text;
                                 msgDiv.style.display = '';
                                 msgDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
+                                linkifySuggestions(msgDiv, inlineSuggestions);
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             } 
                             else if (data.type === 'tool_call') {
@@ -233,6 +254,7 @@
                                 msgDiv.style.display = 'none';
                                 chatBox.appendChild(msgDiv);
                                 fullText = "";
+                                inlineSuggestions = [];
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             }
                             else if (data.type === 'status') {
@@ -240,7 +262,8 @@
                                 btn.title = data.message;
                             }
                             else if (data.type === 'suggestions') {
-                                renderSuggestions(data.items);
+                                inlineSuggestions = data.items;
+                                linkifySuggestions(msgDiv, inlineSuggestions);
                             }
                             else if (data.type === 'image') {
                                 const canvas = document.getElementById('image-canvas');
@@ -261,7 +284,6 @@
             } catch (err) {
                 console.error(err);
                 msgDiv.innerHTML = "CRITICAL: Failed to communicate with engine backend.";
-                renderSuggestions(previousSuggestions);
             } finally {
                 // Re-enable inputs post-action
                 inputField.disabled = false;
@@ -270,6 +292,7 @@
                 btn.setAttribute("aria-label", "Send action");
                 btn.removeAttribute("aria-busy");
                 btn.title = "Send action";
+                actionInProgress = false;
                 if (usedSuggestion) {
                     inputField.blur();
                 } else {

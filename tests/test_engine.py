@@ -58,10 +58,18 @@ class ProcessActionTests(unittest.TestCase):
 
     def test_normalize_suggestions_filters_invalid_and_duplicate_labels(self):
         suggestions = self.engine._normalize_suggestions(
-            [" Listen ", "listen", "", 7, "A" * 33, "Open door", "Ask guard"]
+            [" Listen ", "listen", "", 7, "A" * 81, "Open door", "Ask guard"]
         )
 
         self.assertEqual(suggestions, ["Listen", "Open door", "Ask guard"])
+
+    def test_suggestions_in_text_keeps_only_visible_phrases(self):
+        suggestions = self.engine._suggestions_in_text(
+            ["Fighter", "Examine entrance", "Magic-User"],
+            "Choose a Fighter, Rogue, or Magic-User.",
+        )
+
+        self.assertEqual(suggestions, ["Fighter", "Magic-User"])
 
     def test_process_action_streams_suggestions(self):
         chat_session = MagicMock()
@@ -69,7 +77,7 @@ class ProcessActionTests(unittest.TestCase):
             name="suggest_actions", args={"suggestions": ["Listen", "Inspect door"]}
         )
         chat_session.send_message_stream.side_effect = [
-            iter([make_chunk(text="A faint scrape echoes.", function_calls=[suggestions_fc])]),
+            iter([make_chunk(text="You could Listen or Inspect door.", function_calls=[suggestions_fc])]),
             iter([make_chunk()]),
         ]
         session_state = {"chat_session": chat_session}
@@ -80,16 +88,14 @@ class ProcessActionTests(unittest.TestCase):
 
     def test_process_action_recovers_suggestions_when_turn_omits_them(self):
         chat_session = MagicMock()
-        recovery_fc = SimpleNamespace(
-            name="suggest_actions", args={"suggestions": ["Ask about it", "Take cover"]}
-        )
-        chat_session.send_message_stream.return_value = iter([make_chunk(text="The floor trembles.")])
+        recovery_fc = SimpleNamespace(name="suggest_actions", args={"suggestions": ["Take cover"]})
+        chat_session.send_message_stream.return_value = iter([make_chunk(text="The floor trembles. Take cover.")])
         chat_session.send_message.return_value = make_chunk(function_calls=[recovery_fc])
         session_state = {"chat_session": chat_session}
 
         events = list(self.engine.process_action("wait", session_state))
 
-        self.assertIn({"type": "suggestions", "items": ["Ask about it", "Take cover"]}, events)
+        self.assertIn({"type": "suggestions", "items": ["Take cover"]}, events)
         self.assertEqual(chat_session.send_message.call_count, 2)
 
     def test_process_action_streams_text_chunks(self):
