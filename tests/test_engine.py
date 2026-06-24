@@ -6,6 +6,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from app.state import SessionState
+
 
 def load_engine_module():
     fake_types = SimpleNamespace(
@@ -80,7 +82,7 @@ class ProcessActionTests(unittest.TestCase):
             iter([make_chunk(text="You could Listen or Inspect door.", function_calls=[suggestions_fc])]),
             iter([make_chunk()]),
         ]
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         events = list(self.engine.process_action("wait", session_state))
 
@@ -91,7 +93,7 @@ class ProcessActionTests(unittest.TestCase):
         recovery_fc = SimpleNamespace(name="suggest_actions", args={"suggestions": ["Take cover"]})
         chat_session.send_message_stream.return_value = iter([make_chunk(text="The floor trembles. Take cover.")])
         chat_session.send_message.return_value = make_chunk(function_calls=[recovery_fc])
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         events = list(self.engine.process_action("wait", session_state))
 
@@ -106,7 +108,7 @@ class ProcessActionTests(unittest.TestCase):
                 make_chunk(text="adventurer!"),
             ]
         )
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         events = list(self.engine.process_action("look around", session_state))
 
@@ -127,7 +129,7 @@ class ProcessActionTests(unittest.TestCase):
             iter([make_chunk(text="The ceiling cracks.", function_calls=[roll_fc, suggestions_fc])]),
             iter([make_chunk(text="Take cover before it falls!")]),
         ]
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         events = list(self.engine.process_action("wait", session_state))
 
@@ -139,7 +141,7 @@ class ProcessActionTests(unittest.TestCase):
         chat_session = MagicMock()
         chat_session.send_message_stream.return_value = iter([make_chunk()])
         chat_session.send_message.return_value = make_chunk(text="Let's begin your character creation.")
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         events = list(self.engine.process_action("yes", session_state))
 
@@ -161,7 +163,7 @@ class ProcessActionTests(unittest.TestCase):
         fake_future.done.return_value = True
         fake_future.result.return_value = "data:image/png;base64,abc123"
 
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         with patch.object(self.engine.IMAGE_EXECUTOR, "submit", return_value=fake_future) as submit_mock:
             events = list(self.engine.process_action("open the door", session_state))
@@ -184,7 +186,7 @@ class ProcessActionTests(unittest.TestCase):
         fake_future.done.return_value = True
         fake_future.result.return_value = "data:image/png;base64,storm"
 
-        session_state = {"chat_session": chat_session}
+        session_state = SessionState(chat_session=chat_session)
 
         with patch.object(self.engine.IMAGE_EXECUTOR, "submit", return_value=fake_future):
             events = list(self.engine.process_action("step outside", session_state))
@@ -198,7 +200,7 @@ class ProcessActionTests(unittest.TestCase):
         draw_scene_fc = SimpleNamespace(name="draw_scene", args={"visual_description": "moonlit ruins"})
         initial_response = make_chunk(function_call_parts=[draw_scene_fc])
         followup_response = make_chunk(text="A ruined keep looms over the marsh. Are you ready to begin?")
-        session_state = {}
+        session_state = SessionState()
 
         def fake_draw_scene(*_args, **_kwargs):
             return "data:image/png;base64,ruins"
@@ -219,7 +221,7 @@ class ProcessActionTests(unittest.TestCase):
         self.assertEqual(dm_text, "A ruined keep looms over the marsh. Are you ready to begin?")
         self.assertEqual(image_data, "data:image/png;base64,ruins")
         self.assertEqual(suggestions, [])
-        self.assertIs(session_state["chat_session"], chat_session)
+        self.assertIs(session_state.chat_session, chat_session)
 
 
 if __name__ == "__main__":

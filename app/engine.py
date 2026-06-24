@@ -6,6 +6,7 @@ from google.genai import types
 
 from app.model_client import GeminiModelClient
 from app.prompts import build_initial_prompt, build_system_instruction
+from app.state import SessionState
 from app.tools import roll_dice
 
 
@@ -187,19 +188,19 @@ def suggest_actions_tool(suggestions: list[str]) -> dict:
 suggest_actions_tool.__name__ = "suggest_actions"
 
 
-def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
+def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionState):
     """Uploads PDF to Gemini and initializes the game chat session."""
     logger.info("engine.init.upload.start", extra={"upload_filename": filename})
     uploaded_pdf = model_client.upload_file(temp_path)
     uploaded_pdf = model_client.wait_for_file_processing(uploaded_pdf)
-    session_state["latest_pdf"] = uploaded_pdf
-    session_state["chat_session"] = model_client.create_chat_session(
+    session_state.latest_pdf = uploaded_pdf
+    session_state.chat_session = model_client.create_chat_session(
         system_instruction=build_system_instruction(),
         tools=[roll_dice, draw_scene_tool, suggest_actions_tool],
     )
 
     current_response = model_client.send_message(
-        session_state["chat_session"], build_initial_prompt(uploaded_pdf)
+        session_state.chat_session, build_initial_prompt(uploaded_pdf)
     )
     dm_text = ""
     image_data = None
@@ -238,7 +239,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
 
             tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
 
-        current_response = model_client.send_message(session_state["chat_session"], tool_responses)
+        current_response = model_client.send_message(session_state.chat_session, tool_responses)
 
     if not dm_text.strip():
         logger.warning("engine.init.empty_intro")
@@ -253,7 +254,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     suggestions = _suggestions_in_text(suggestions, dm_text)
     if not suggestions:
         recovered_suggestions = _recover_suggestions(
-            session_state["chat_session"],
+            session_state.chat_session,
             "The opening invitation is already shown. Call suggest_actions now with 2 or 3 "
             "natural readiness phrases that appear verbatim in that text. Do not write any "
             "narrative or call another tool.",
@@ -263,9 +264,9 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
     return dm_text, image_data, suggestions
 
 
-def process_action(player_text: str, session_state: dict):
+def process_action(player_text: str, session_state: SessionState):
     """The core execution loop for driving a player action synchronously as a pure generator."""
-    chat_session = session_state.get("chat_session")
+    chat_session = session_state.chat_session
     if not chat_session:
         yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
         return

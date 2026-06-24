@@ -7,7 +7,6 @@ import os
 import socket
 import ssl
 import tempfile
-import threading
 import urllib.parse
 import urllib.request
 import uuid
@@ -16,7 +15,7 @@ from werkzeug.utils import secure_filename
 
 from app.config import load_runtime_config
 from app.engine import process_action, upload_pdf_and_init
-from app.state import get_or_create_session_state
+from app.state import SessionStore
 
 
 logging.basicConfig(
@@ -25,6 +24,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 config = load_runtime_config()
+session_store = SessionStore(config.session_ttl_seconds, config.max_sessions)
 
 ALLOWED_EXTENSIONS = {".pdf"}
 ALLOWED_UPLOAD_MIME_TYPES = {
@@ -73,7 +73,7 @@ def _get_session_state():
     if not session_id:
         session_id = str(uuid.uuid4())
         session["session_id"] = session_id
-    return get_or_create_session_state(session_id)
+    return session_store.get_or_create(session_id)
 
 
 def _is_private_host(hostname: str) -> bool:
@@ -342,7 +342,7 @@ def load_url():
 def action():
     request_id = _request_id()
     session_state = _get_session_state()
-    chat_session = session_state.get("chat_session")
+    chat_session = session_state.chat_session
     if not chat_session:
         return _json_error(
             "Engine not initialized. Please upload a PDF first.",
@@ -357,7 +357,7 @@ def action():
     if len(player_text) > 4000:
         return _json_error("Action text must be 4,000 characters or fewer.", 400, request_id=request_id)
 
-    action_lock = session_state.setdefault("action_lock", threading.Lock())
+    action_lock = session_state.action_lock
     if not action_lock.acquire(blocking=False):
         return _json_error("A previous action is still being processed.", 409, request_id=request_id)
 

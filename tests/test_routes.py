@@ -1,6 +1,7 @@
 import importlib
 import json
 import sys
+import threading
 import types
 import unittest
 from types import SimpleNamespace
@@ -52,7 +53,9 @@ def load_main_module(process_action_impl=None):
     fake_engine.process_action = process_action_impl or (lambda *args, **kwargs: iter([{"type": "done"}]))
 
     fake_state = types.ModuleType("app.state")
-    fake_state.get_or_create_session_state = lambda _session_id: {"chat_session": object()}
+    fake_state.SessionStore = lambda *_args, **_kwargs: SimpleNamespace(
+        get_or_create=lambda _session_id: SimpleNamespace(chat_session=object(), action_lock=threading.Lock())
+    )
 
     sys.modules.pop("app.main", None)
     with patch.dict(
