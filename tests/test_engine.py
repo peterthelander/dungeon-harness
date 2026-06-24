@@ -155,7 +155,6 @@ class ProcessActionTests(unittest.TestCase):
         submit_mock.assert_called_once()
         called_args = submit_mock.call_args[0]
         self.assertEqual(called_args[1], "misty dungeon hall")
-        self.assertIs(called_args[2], session_state)
 
     def test_process_action_reads_function_calls_from_candidate_parts(self):
         chat_session = MagicMock()
@@ -186,8 +185,7 @@ class ProcessActionTests(unittest.TestCase):
         session_state = {}
 
         def fake_draw_scene(*_args, **_kwargs):
-            session_state["latest_scene_image_data"] = "data:image/png;base64,ruins"
-            return {"status": "Scene successfully rendered on the player's canvas."}
+            return "data:image/png;base64,ruins"
 
         with (
             patch.object(self.engine.model_client, "upload_file", return_value=uploaded_pdf),

@@ -135,16 +135,15 @@ def _log_empty_response(response) -> None:
     )
 
 
-def _async_image_wrapper(visual_description: str, state: dict):
+def _async_image_wrapper(visual_description: str):
     try:
-        draw_scene(visual_description, state)
-        return state.pop("latest_scene_image_data", None)
+        return draw_scene(visual_description)
     finally:
         IMAGE_SLOTS.release()
 
 
-def draw_scene(visual_description: str, session_state: dict) -> dict:
-    """Generate a scene image from a direct visual description prompt."""
+def draw_scene(visual_description: str) -> str | None:
+    """Generate a scene image and return it as a data URL."""
     logger.info("scene.render.start")
     image_result = model_client.generate_image(visual_description)
     if image_result.candidates and image_result.candidates[0].content and image_result.candidates[0].content.parts:
@@ -153,10 +152,10 @@ def draw_scene(visual_description: str, session_state: dict) -> dict:
                 raw_bytes = part.inline_data.data
                 b64_img = base64.b64encode(raw_bytes).decode("utf-8")
                 mime_type = part.inline_data.mime_type or "image/jpeg"
-                session_state["latest_scene_image_data"] = f"data:{mime_type};base64,{b64_img}"
-                break
+                logger.info("scene.render.complete")
+                return f"data:{mime_type};base64,{b64_img}"
     logger.info("scene.render.complete")
-    return {"status": "Scene successfully rendered on the player's canvas."}
+    return None
 
 
 def draw_scene_tool(visual_description: str) -> dict:
@@ -218,10 +217,8 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
                 res.pop("ui_message", "")
             elif fc.name == "draw_scene":
                 visual_description = fc.args.get("visual_description", "")
-                res = draw_scene(visual_description=visual_description, session_state=session_state)
-                img = session_state.pop("latest_scene_image_data", None)
-                if img:
-                    image_data = img
+                image_data = draw_scene(visual_description=visual_description)
+                res = {"status": "Scene successfully rendered on the player's canvas."}
             elif fc.name == "suggest_actions":
                 suggestions = _normalize_suggestions(fc.args.get("suggestions"))
                 res = {"status": "Matching phrases will be linked in the player UI."}
@@ -238,8 +235,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: dict):
 
     if image_data is None:
         try:
-            draw_scene(FALLBACK_SCENE_PROMPT, session_state)
-            image_data = session_state.pop("latest_scene_image_data", None)
+            image_data = draw_scene(FALLBACK_SCENE_PROMPT)
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 
@@ -321,7 +317,7 @@ def process_action(player_text: str, session_state: dict):
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
                     if IMAGE_SLOTS.acquire(blocking=False):
-                        future = IMAGE_EXECUTOR.submit(_async_image_wrapper, visual_description, session_state)
+                        future = IMAGE_EXECUTOR.submit(_async_image_wrapper, visual_description)
                         pending_image_jobs.append({"future": future, "visual_description": visual_description})
                         res = {"status": "Scene generation started asynchronously and will be displayed when ready."}
                     else:

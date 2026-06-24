@@ -74,6 +74,48 @@ class SecurityValidationTests(unittest.TestCase):
         self.assertIsNone(validated_url)
         self.assertEqual(error, "Private or local network addresses are not allowed.")
 
+    def test_validate_remote_url_blocks_mixed_public_and_private_dns_answers(self):
+        addresses = [
+            (None, None, None, None, ("93.184.216.34", 0)),
+            (None, None, None, None, ("127.0.0.1", 0)),
+        ]
+        with patch.object(socket, "getaddrinfo", return_value=addresses):
+            validated_url, error = self.main._validate_remote_url("https://example.com/module.pdf")
+
+        self.assertIsNone(validated_url)
+        self.assertEqual(error, "Private or local network addresses are not allowed.")
+
+    def test_open_pinned_response_connects_to_validated_address(self):
+        captured = {}
+
+        class FakeResponse:
+            status = 200
+
+        class FakeConnection:
+            def __init__(self, host, port, address, timeout):
+                captured.update(host=host, port=port, address=address, timeout=timeout)
+
+            def request(self, method, target, headers):
+                captured.update(method=method, target=target, headers=headers)
+
+            def getresponse(self):
+                return FakeResponse()
+
+            def close(self):
+                pass
+
+        addresses = [(None, None, None, None, ("93.184.216.34", 0))]
+        with (
+            patch.object(socket, "getaddrinfo", return_value=addresses),
+            patch.object(self.main, "_PinnedHTTPConnection", FakeConnection),
+        ):
+            connection, response = self.main._open_pinned_response("http://example.com/module.pdf")
+
+        self.assertIsInstance(connection, FakeConnection)
+        self.assertIsInstance(response, FakeResponse)
+        self.assertEqual(captured["address"], "93.184.216.34")
+        self.assertEqual(captured["headers"]["Host"], "example.com")
+
 
 if __name__ == "__main__":
     unittest.main()

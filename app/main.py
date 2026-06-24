@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, Response, session
+import http.client
 import ipaddress
 import json
 import logging
 import os
 import socket
+import ssl
 import tempfile
 import threading
 import urllib.parse
@@ -76,22 +78,21 @@ def _get_session_state():
 
 def _is_private_host(hostname: str) -> bool:
     try:
-        addresses = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, None)}
+        addresses = _resolve_public_addresses(hostname)
     except socket.gaierror:
         return True
+    return not addresses
 
+
+def _resolve_public_addresses(hostname: str, port: Optional[int] = None) -> tuple[str, ...]:
+    addresses = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, port)}
+    public_addresses = []
     for address in addresses:
         ip = ipaddress.ip_address(address)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            return True
-    return False
+        if not ip.is_global:
+            return ()
+        public_addresses.append(address)
+    return tuple(public_addresses)
 
 
 def _validate_remote_url(url: str):
@@ -100,7 +101,13 @@ def _validate_remote_url(url: str):
         return None, "Only http/https URLs are allowed."
     if not parsed.hostname:
         return None, "URL must include a hostname."
-    if _is_private_host(parsed.hostname):
+    if parsed.username or parsed.password:
+        return None, "URLs with credentials are not allowed."
+    try:
+        port = parsed.port
+    except ValueError:
+        return None, "URL contains an invalid port."
+    if not _resolve_public_addresses(parsed.hostname, port):
         return None, "Private or local network addresses are not allowed."
     return parsed.geturl(), None
 
@@ -116,12 +123,23 @@ def _is_allowed_mime_type(content_type: Optional[str]) -> bool:
     return content_type.split(";")[0].strip().lower() in ALLOWED_UPLOAD_MIME_TYPES
 
 
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, host: str, port: int, address: str, timeout: int):
+        super().__init__(host, port=port, timeout=timeout)
+        self._address = address
+
+    def connect(self):
+        self.sock = socket.create_connection((self._address, self.port), self.timeout)
 
 
-_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, host: str, port: int, address: str, timeout: int):
+        super().__init__(host, port=port, timeout=timeout, context=ssl.create_default_context())
+        self._address = address
+
+    def connect(self):
+        raw_socket = socket.create_connection((self._address, self.port), self.timeout)
+        self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
 
 
 def _looks_like_pdf(path: str) -> bool:
@@ -129,25 +147,49 @@ def _looks_like_pdf(path: str) -> bool:
         return uploaded_file.read(5) == b"%PDF-"
 
 
+def _open_pinned_response(url: str):
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL must include a hostname.")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    addresses = _resolve_public_addresses(hostname, port)
+    if not addresses:
+        raise ValueError("Private or local network addresses are not allowed.")
+
+    target = urllib.parse.urlunparse(("", "", parsed.path or "/", "", parsed.query, ""))
+    host_header = hostname if parsed.port is None else f"{hostname}:{parsed.port}"
+    last_error = None
+    for address in addresses:
+        connection_class = _PinnedHTTPSConnection if parsed.scheme == "https" else _PinnedHTTPConnection
+        connection = connection_class(hostname, port, address, config.remote_download_timeout_seconds)
+        try:
+            connection.request("GET", target, headers={"Host": host_header, "User-Agent": "DungeonHarness/1.0"})
+            return connection, connection.getresponse()
+        except OSError as error:
+            connection.close()
+            last_error = error
+    raise ValueError("Remote server could not be reached.") from last_error
+
+
 def _download_remote_file(validated_url: str, temp_path: str):
     current_url = validated_url
     for _ in range(4):
-        req = urllib.request.Request(current_url, headers={"User-Agent": "DungeonHarness/1.0"})
+        connection = None
         try:
-            response = _NO_REDIRECT_OPENER.open(req, timeout=config.remote_download_timeout_seconds)
-        except urllib.error.HTTPError as error:
-            if error.code not in {301, 302, 303, 307, 308}:
-                raise
-            location = error.headers.get("Location")
-            if not location:
-                raise ValueError("Remote server returned an invalid redirect.")
-            candidate = urllib.parse.urljoin(current_url, location)
-            current_url, validation_error = _validate_remote_url(candidate)
-            if validation_error:
-                raise ValueError(validation_error)
-            continue
+            connection, response = _open_pinned_response(current_url)
+            if response.status in {301, 302, 303, 307, 308}:
+                location = response.headers.get("Location")
+                if not location:
+                    raise ValueError("Remote server returned an invalid redirect.")
+                candidate = urllib.parse.urljoin(current_url, location)
+                current_url, validation_error = _validate_remote_url(candidate)
+                if validation_error:
+                    raise ValueError(validation_error)
+                continue
+            if not 200 <= response.status < 300:
+                raise ValueError("Remote server returned an unsuccessful status.")
 
-        with response:
             content_type = response.headers.get("Content-Type", "")
             normalized_type = content_type.split(";")[0].strip().lower()
             if normalized_type and normalized_type not in ALLOWED_REMOTE_CONTENT_TYPES:
@@ -173,6 +215,9 @@ def _download_remote_file(validated_url: str, temp_path: str):
                         raise ValueError("Remote file exceeds configured size limit.")
                     out_file.write(chunk)
             return
+        finally:
+            if connection:
+                connection.close()
     raise ValueError("Too many redirects.")
 
 
