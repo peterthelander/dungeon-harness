@@ -47,7 +47,6 @@
                 .filter((item) => item && item.length <= 80))].slice(0, 4);
             if (!uniqueItems.length) return;
 
-            deactivateInlineActions();
             uniqueItems.forEach((item) => linkifyFirstPhrase(messageElement, item));
         }
 
@@ -197,15 +196,23 @@
             
             const chatBox = document.getElementById('chat-window');
             
-            // Create the real-time DM markdown container
-            let msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', 'dm');
-            msgDiv.style.display = 'none';
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            
-            let fullText = "";
-            let inlineSuggestions = [];
+            const dmMessages = new Map();
+            const dmText = new Map();
+            const inlineSuggestions = new Map();
+
+            function getDmMessage(messageId) {
+                if (!dmMessages.has(messageId)) {
+                    const message = document.createElement('div');
+                    message.classList.add('message', 'dm');
+                    message.style.display = 'none';
+                    chatBox.appendChild(message);
+                    dmMessages.set(messageId, message);
+                    dmText.set(messageId, '');
+                }
+                return dmMessages.get(messageId);
+            }
+
+            let msgDiv = getDmMessage(0);
 
             try {
                 const response = await fetch('/action', {
@@ -216,6 +223,7 @@
 
                 if (!response.ok) {
                     const data = await response.json();
+                    msgDiv.style.display = '';
                     msgDiv.textContent = "ERROR: " + data.error;
                 } else {
                     // Read the NDJSON stream
@@ -236,10 +244,13 @@
                             const data = JSON.parse(line);
                             
                             if (data.type === 'text_chunk') {
-                                fullText += data.text;
+                                const messageId = data.message_id ?? 0;
+                                msgDiv = getDmMessage(messageId);
+                                const fullText = (dmText.get(messageId) || '') + data.text;
+                                dmText.set(messageId, fullText);
                                 msgDiv.style.display = '';
                                 msgDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullText));
-                                linkifySuggestions(msgDiv, inlineSuggestions);
+                                linkifySuggestions(msgDiv, inlineSuggestions.get(messageId));
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             } 
                             else if (data.type === 'tool_call') {
@@ -247,14 +258,6 @@
                                 sysDiv.classList.add('message', 'system');
                                 sysDiv.innerHTML = DOMPurify.sanitize(marked.parse(data.message));
                                 chatBox.appendChild(sysDiv);
-                                
-                                // Reset the DM message div for any subsequent text
-                                msgDiv = document.createElement('div');
-                                msgDiv.classList.add('message', 'dm');
-                                msgDiv.style.display = 'none';
-                                chatBox.appendChild(msgDiv);
-                                fullText = "";
-                                inlineSuggestions = [];
                                 chatBox.scrollTop = chatBox.scrollHeight;
                             }
                             else if (data.type === 'status') {
@@ -262,8 +265,10 @@
                                 btn.title = data.message;
                             }
                             else if (data.type === 'suggestions') {
-                                inlineSuggestions = data.items;
-                                linkifySuggestions(msgDiv, inlineSuggestions);
+                                const messageId = data.message_id ?? 0;
+                                msgDiv = getDmMessage(messageId);
+                                inlineSuggestions.set(messageId, data.items);
+                                linkifySuggestions(msgDiv, data.items);
                             }
                             else if (data.type === 'image') {
                                 const canvas = document.getElementById('image-canvas');
@@ -297,11 +302,6 @@
                     inputField.blur();
                 } else {
                     inputField.focus();
-                }
-                
-                // If DM message is empty after stream finishes (e.g. error or empty reply), remove it
-                if (!fullText.trim()) {
-                    // msgDiv.remove();
                 }
             }
         }

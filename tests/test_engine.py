@@ -84,7 +84,7 @@ class ProcessActionTests(unittest.TestCase):
 
         events = list(self.engine.process_action("wait", session_state))
 
-        self.assertIn({"type": "suggestions", "items": ["Listen", "Inspect door"]}, events)
+        self.assertIn({"type": "suggestions", "items": ["Listen", "Inspect door"], "message_id": 0}, events)
 
     def test_process_action_recovers_suggestions_when_turn_omits_them(self):
         chat_session = MagicMock()
@@ -95,7 +95,7 @@ class ProcessActionTests(unittest.TestCase):
 
         events = list(self.engine.process_action("wait", session_state))
 
-        self.assertIn({"type": "suggestions", "items": ["Take cover"]}, events)
+        self.assertIn({"type": "suggestions", "items": ["Take cover"], "message_id": 0}, events)
         self.assertEqual(chat_session.send_message.call_count, 2)
 
     def test_process_action_streams_text_chunks(self):
@@ -113,11 +113,27 @@ class ProcessActionTests(unittest.TestCase):
         self.assertEqual(
             events,
             [
-                {"type": "text_chunk", "text": "Hello "},
-                {"type": "text_chunk", "text": "adventurer!"},
+                {"type": "text_chunk", "text": "Hello ", "message_id": 0},
+                {"type": "text_chunk", "text": "adventurer!", "message_id": 0},
                 {"type": "done"},
             ],
         )
+
+    def test_process_action_targets_suggestions_after_a_tool_call(self):
+        chat_session = MagicMock()
+        roll_fc = SimpleNamespace(name="roll_dice", args={"dice_type": 20, "purpose": "test"})
+        suggestions_fc = SimpleNamespace(name="suggest_actions", args={"suggestions": ["Take cover"]})
+        chat_session.send_message_stream.side_effect = [
+            iter([make_chunk(text="The ceiling cracks.", function_calls=[roll_fc, suggestions_fc])]),
+            iter([make_chunk(text="Take cover before it falls!")]),
+        ]
+        session_state = {"chat_session": chat_session}
+
+        events = list(self.engine.process_action("wait", session_state))
+
+        self.assertIn({"type": "text_chunk", "text": "The ceiling cracks.", "message_id": 0}, events)
+        self.assertIn({"type": "text_chunk", "text": "Take cover before it falls!", "message_id": 1}, events)
+        self.assertIn({"type": "suggestions", "items": ["Take cover"], "message_id": 1}, events)
 
     def test_process_action_recovers_from_empty_stream_with_non_streaming_response(self):
         chat_session = MagicMock()
@@ -128,7 +144,7 @@ class ProcessActionTests(unittest.TestCase):
         events = list(self.engine.process_action("yes", session_state))
 
         self.assertIn(
-            {"type": "text_chunk", "text": "Let's begin your character creation."},
+            {"type": "text_chunk", "text": "Let's begin your character creation.", "message_id": 0},
             events,
         )
         self.assertEqual(chat_session.send_message.call_count, 2)
@@ -174,7 +190,7 @@ class ProcessActionTests(unittest.TestCase):
             events = list(self.engine.process_action("step outside", session_state))
 
         self.assertIn({"type": "image", "image_data": "data:image/png;base64,storm"}, events)
-        self.assertIn({"type": "text_chunk", "text": "Lightning cracks over the spire."}, events)
+        self.assertIn({"type": "text_chunk", "text": "Lightning cracks over the spire.", "message_id": 0}, events)
 
     def test_upload_pdf_and_init_reads_function_calls_from_candidate_parts(self):
         uploaded_pdf = SimpleNamespace(name="module.pdf", state=SimpleNamespace(name="ACTIVE"))

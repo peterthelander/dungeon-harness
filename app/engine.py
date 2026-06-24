@@ -60,6 +60,17 @@ def _suggestions_in_text(suggestions: list[str], text: str) -> list[str]:
     ]
 
 
+def _suggestions_by_message(suggestions: list[str], messages: dict[int, str]) -> dict[int, list[str]]:
+    """Associate each suggestion with the latest visible DM message containing it."""
+    grouped = {}
+    for suggestion in suggestions:
+        for message_id in sorted(messages, reverse=True):
+            if _suggestions_in_text([suggestion], messages[message_id]):
+                grouped.setdefault(message_id, []).append(suggestion)
+                break
+    return grouped
+
+
 def _recover_suggestions(chat_session, prompt: str) -> list[str]:
     """Ask the model to identify linkable phrases already shown to the player."""
     try:
@@ -273,6 +284,8 @@ def process_action(player_text: str, session_state: dict):
         function_call_count = 0
         finish_reasons = []
         latest_suggestions = None
+        message_id = 0
+        message_texts = {message_id: ""}
 
         while True:
             response = model_client.send_message_stream(chat_session, current_input)
@@ -284,7 +297,8 @@ def process_action(player_text: str, session_state: dict):
                     for part in chunk.candidates[0].content.parts:
                         if getattr(part, "text", None):
                             dm_text_full += part.text
-                            yield {"type": "text_chunk", "text": part.text}
+                            message_texts[message_id] += part.text
+                            yield {"type": "text_chunk", "text": part.text, "message_id": message_id}
 
                 for candidate in getattr(chunk, "candidates", None) or []:
                     if getattr(candidate, "finish_reason", None) is not None:
@@ -309,11 +323,13 @@ def process_action(player_text: str, session_state: dict):
                 break
 
             tool_responses = []
+            emitted_tool_call = False
             for fc in function_calls:
                 if fc.name == "roll_dice":
                     res = roll_dice(**fc.args)
                     ui_message = res.pop("ui_message", ">> **System**: Rolling dice...")
                     yield {"type": "tool_call", "message": ui_message}
+                    emitted_tool_call = True
                 elif fc.name == "draw_scene":
                     visual_description = fc.args.get("visual_description", "")
                     if IMAGE_SLOTS.acquire(blocking=False):
@@ -328,10 +344,14 @@ def process_action(player_text: str, session_state: dict):
                 else:
                     res = {"error": f"Tool {fc.name} not implemented."}
                     yield {"type": "tool_call", "message": f">> **System**: Called unexpected tool `{fc.name}`"}
+                    emitted_tool_call = True
 
                 tool_responses.append(types.Part.from_function_response(name=fc.name, response=res))
 
             current_input = tool_responses
+            if emitted_tool_call:
+                message_id += 1
+                message_texts[message_id] = ""
 
         for job in list(pending_image_jobs):
             try:
@@ -358,8 +378,9 @@ def process_action(player_text: str, session_state: dict):
             recovery_text, _ = _extract_text_and_image(recovery_response)
             if recovery_text:
                 dm_text_full = recovery_text
+                message_texts[message_id] = recovery_text
                 logger.info("engine.action.recovery_succeeded text_length=%s", len(recovery_text))
-                yield {"type": "text_chunk", "text": recovery_text}
+                yield {"type": "text_chunk", "text": recovery_text, "message_id": message_id}
             else:
                 logger.warning("engine.action.recovery_empty")
         else:
@@ -370,17 +391,17 @@ def process_action(player_text: str, session_state: dict):
                 function_call_count,
             )
 
-        inline_suggestions = _suggestions_in_text(latest_suggestions or [], dm_text_full)
-        if not inline_suggestions:
+        suggestions_by_message = _suggestions_by_message(latest_suggestions or [], message_texts)
+        if not suggestions_by_message:
             recovered_suggestions = _recover_suggestions(
                 chat_session,
                 "Your immediately preceding Dungeon Master response is already shown. Call "
                 "suggest_actions now with 2 to 4 natural, spoiler-free action phrases that "
                 "appear verbatim in that response. Do not write any narrative or call another tool.",
             )
-            inline_suggestions = _suggestions_in_text(recovered_suggestions, dm_text_full)
-        if inline_suggestions:
-            yield {"type": "suggestions", "items": inline_suggestions}
+            suggestions_by_message = _suggestions_by_message(recovered_suggestions, message_texts)
+        for suggestion_message_id, items in suggestions_by_message.items():
+            yield {"type": "suggestions", "items": items, "message_id": suggestion_message_id}
         yield {"type": "done"}
     except Exception as e:
         logger.exception("engine.action.failed", extra={"error": str(e)})
