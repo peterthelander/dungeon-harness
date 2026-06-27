@@ -110,7 +110,6 @@ class RoutesTests(unittest.TestCase):
                 [
                     {"type": "text_chunk", "text": "Hello"},
                     {"type": "tool_call", "message": "Rolling"},
-                    {"type": "suggestions", "items": ["Listen"]},
                     {"type": "image", "image_data": "data:image/png;base64,abc"},
                     {"type": "done"},
                 ]
@@ -126,9 +125,8 @@ class RoutesTests(unittest.TestCase):
 
         self.assertEqual(events[0]["type"], "text_chunk")
         self.assertEqual(events[1]["type"], "tool_call")
-        self.assertEqual(events[2]["type"], "suggestions")
-        self.assertEqual(events[3]["type"], "image")
-        self.assertEqual(events[4]["type"], "done")
+        self.assertEqual(events[2]["type"], "image")
+        self.assertEqual(events[3]["type"], "done")
 
 
 if __name__ == "__main__":

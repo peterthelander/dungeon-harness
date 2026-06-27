@@ -23,7 +23,8 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("@typedef {Object} ScenePageData", script)
         self.assertIn("heroImageUrl", script)
         self.assertIn("narrative", script)
-        self.assertIn("suggestedActions", script)
+        self.assertNotIn("suggestedActions", script)
+        self.assertNotIn("linkifySuggestions", script)
         self.assertIn("const ScenePage", script)
 
     def test_new_action_keeps_current_scene_until_response_starts(self):

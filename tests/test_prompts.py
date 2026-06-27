@@ -9,20 +9,17 @@ class PromptTests(unittest.TestCase):
 
         self.assertIn("do not call dice or scene-rendering tools", prompt)
         self.assertIn("distinctive location, threat, or hook", prompt)
-        self.assertIn("readiness phrases in the announcement itself", prompt)
+        self.assertIn("immediate readiness choices", prompt)
         self.assertIn("do not create Markdown links or URLs", prompt)
 
     def test_system_prompt_exempts_opening_greeting_from_scene_tool(self):
         instruction = build_system_instruction()
 
         self.assertIn("do not call 'draw_scene' during the first onboarding greeting", instruction)
-        self.assertIn("suggest_actions", instruction)
+        self.assertIn("immediate choices clear in natural prose", instruction)
         self.assertIn("never begin the adventure early", instruction)
-        self.assertIn("Do not shorten or rewrite it just for the interface", instruction)
-        self.assertIn("Never suggest generic labels", instruction)
-        self.assertIn("Every suggestion must appear verbatim", instruction)
-        self.assertIn("MUST weave 2 to 4", instruction)
-        self.assertIn("never as Markdown links", instruction)
+        self.assertIn("confirming or revising the hero", instruction)
+        self.assertNotIn("suggest_actions", instruction)
 
 
 if __name__ == "__main__":

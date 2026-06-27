@@ -2,15 +2,10 @@ let actionInProgress = false;
 let nextSceneBlockId = 1;
 
 /**
- * @typedef {Object} SuggestedAction
- * @property {string} label
- * @property {string} text
- *
  * @typedef {Object} ScenePageData
  * @property {string=} title
  * @property {string=} heroImageUrl
  * @property {string} narrative
- * @property {SuggestedAction[]} suggestedActions
  * @property {Array<Object>=} blocks
  */
 
@@ -18,7 +13,6 @@ const scenePageData = {
     title: undefined,
     heroImageUrl: undefined,
     narrative: '',
-    suggestedActions: [],
     blocks: []
 };
 
@@ -26,27 +20,7 @@ function resetScenePage() {
     scenePageData.title = undefined;
     scenePageData.heroImageUrl = undefined;
     scenePageData.narrative = '';
-    scenePageData.suggestedActions = [];
     scenePageData.blocks = [];
-}
-
-function normalizeSuggestedActions(items) {
-    return [...new Set((Array.isArray(items) ? items : [])
-        .map((item) => {
-            if (typeof item === 'string') {
-                const label = item.trim();
-                return label ? { label, text: label } : null;
-            }
-            if (item && typeof item === 'object') {
-                const label = String(item.label || item.text || '').trim();
-                const text = String(item.text || label).trim();
-                return label && text ? { label, text } : null;
-            }
-            return null;
-        })
-        .filter(Boolean)
-        .filter((item) => item.label.length <= 80)
-        .map((item) => JSON.stringify(item)))].map((item) => JSON.parse(item)).slice(0, 4);
 }
 
 function syncNarrativeFromBlocks() {
@@ -54,52 +28,6 @@ function syncNarrativeFromBlocks() {
         .filter((block) => block.type === 'message')
         .map((block) => block.markdown || '')
         .join('\n\n');
-}
-
-function deactivateInlineActions() {
-    document.querySelectorAll('.inline-action').forEach((link) => {
-        link.classList.add('inline-action--inactive');
-        link.setAttribute('aria-disabled', 'true');
-    });
-}
-
-function linkifyFirstPhrase(messageElement, action) {
-    const phrase = action.label;
-    const phraseLower = phrase.toLocaleLowerCase();
-    const walker = document.createTreeWalker(messageElement, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-            if (!node.parentElement || node.parentElement.closest('a, button')) {
-                return NodeFilter.FILTER_REJECT;
-            }
-            return node.nodeValue.toLocaleLowerCase().includes(phraseLower)
-                ? NodeFilter.FILTER_ACCEPT
-                : NodeFilter.FILTER_REJECT;
-        }
-    });
-    const textNode = walker.nextNode();
-    if (!textNode) return false;
-
-    const text = textNode.nodeValue;
-    const start = text.toLocaleLowerCase().indexOf(phraseLower);
-    const fragment = document.createDocumentFragment();
-    fragment.append(text.slice(0, start));
-
-    const link = document.createElement('button');
-    link.type = 'button';
-    link.className = 'inline-action';
-    link.textContent = text.slice(start, start + phrase.length);
-    link.setAttribute('aria-label', `Choose ${phrase}`);
-    link.addEventListener('click', () => {
-        if (!actionInProgress) sendAction(action.text);
-    });
-    fragment.append(link, text.slice(start + phrase.length));
-    textNode.replaceWith(fragment);
-    return true;
-}
-
-function linkifySuggestions(messageElement, items) {
-    const actions = normalizeSuggestedActions(items);
-    actions.forEach((item) => linkifyFirstPhrase(messageElement, item));
 }
 
 const ScenePage = (() => {
@@ -174,7 +102,7 @@ const ScenePage = (() => {
         content.className = 'scene-page__content';
         const blocks = Array.isArray(data.blocks) && data.blocks.length
             ? data.blocks
-            : [{ type: 'message', role: 'dm', markdown: data.narrative || '', suggestedActions: data.suggestedActions }];
+            : [{ type: 'message', role: 'dm', markdown: data.narrative || '' }];
         blocks.forEach((block) => content.append(renderBlock(block)));
         layout.append(content);
 
@@ -212,9 +140,6 @@ const ScenePage = (() => {
         article.innerHTML = DOMPurify.sanitize(marked.parse(block.markdown || ''));
         if (block.role === 'dm' && !block.markdown) {
             article.hidden = true;
-        }
-        if (block.role === 'dm') {
-            linkifySuggestions(article, block.suggestedActions || []);
         }
         return article;
     }
@@ -282,11 +207,10 @@ function updateSceneBlock(block, values) {
     ScenePage.render(scenePageData);
 }
 
-function appendMessage(text, role, options = {}) {
+function appendMessage(text, role) {
     return addSceneBlock('message', {
         role,
-        markdown: text,
-        suggestedActions: normalizeSuggestedActions(options.suggestedActions)
+        markdown: text
     });
 }
 
@@ -366,11 +290,10 @@ async function handleInitializationResponse(response) {
 
     if (response.ok) {
         resetScenePage();
-        scenePageData.suggestedActions = normalizeSuggestedActions(data.suggestions);
         scenePageData.heroImageUrl = data.image_data || undefined;
 
         if (data.dm_text) {
-            appendMessage(data.dm_text, 'dm', { suggestedActions: data.suggestions });
+            appendMessage(data.dm_text, 'dm');
         } else {
             ScenePage.render(scenePageData);
         }
@@ -403,9 +326,8 @@ function handleKeyPress(e) {
     }
 }
 
-async function sendAction(suggestedText = null) {
-    const text = (suggestedText || ScenePage.getInputValue()).trim();
-    const usedSuggestion = typeof suggestedText === 'string';
+async function sendAction() {
+    const text = ScenePage.getInputValue().trim();
 
     if (!text || actionInProgress) return;
     actionInProgress = true;
@@ -413,11 +335,8 @@ async function sendAction(suggestedText = null) {
     appendMessage(text, 'player');
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
-    deactivateInlineActions();
-
     const dmMessages = new Map();
     const dmText = new Map();
-    const inlineSuggestions = new Map();
     let freshSceneStarted = false;
 
     function startFreshScene() {
@@ -433,8 +352,7 @@ async function sendAction(suggestedText = null) {
         if (!dmMessages.has(messageId)) {
             const message = addSceneBlock('message', {
                 role: 'dm',
-                markdown: '',
-                suggestedActions: []
+                markdown: ''
             });
             dmMessages.set(messageId, message);
             dmText.set(messageId, '');
@@ -477,23 +395,12 @@ async function sendAction(suggestedText = null) {
                         msgBlock = getDmMessage(messageId);
                         const fullText = (dmText.get(messageId) || '') + data.text;
                         dmText.set(messageId, fullText);
-                        updateSceneBlock(msgBlock, {
-                            markdown: fullText,
-                            suggestedActions: inlineSuggestions.get(messageId) || []
-                        });
+                        updateSceneBlock(msgBlock, { markdown: fullText });
                     } else if (data.type === 'tool_call') {
                         startFreshScene();
                         appendSystemMessage(data.message);
                     } else if (data.type === 'status') {
                         ScenePage.setBusy(true, data.message);
-                    } else if (data.type === 'suggestions') {
-                        startFreshScene();
-                        const messageId = data.message_id ?? 0;
-                        msgBlock = getDmMessage(messageId);
-                        const actions = normalizeSuggestedActions(data.items);
-                        inlineSuggestions.set(messageId, actions);
-                        scenePageData.suggestedActions = actions;
-                        updateSceneBlock(msgBlock, { suggestedActions: actions });
                     } else if (data.type === 'image') {
                         startFreshScene();
                         setHeroImage(data.image_data);
@@ -517,11 +424,7 @@ async function sendAction(suggestedText = null) {
     } finally {
         ScenePage.setBusy(false, 'Send action');
         actionInProgress = false;
-        if (usedSuggestion) {
-            ScenePage.blurInput();
-        } else {
-            ScenePage.focusInput();
-        }
+        ScenePage.focusInput();
     }
 }
 

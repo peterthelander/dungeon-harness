@@ -7,8 +7,7 @@ from app.model_client import GeminiModelClient
 from app.prompts import build_initial_prompt, build_system_instruction
 from app.scenes import SceneRenderer
 from app.state import SessionState
-from app.suggestions import normalize_suggestions, suggestions_by_message, suggestions_in_text
-from app.tool_dispatch import ToolDispatcher, draw_scene_tool, suggest_actions_tool
+from app.tool_dispatch import ToolDispatcher, draw_scene_tool
 from app.tools import roll_dice
 
 
@@ -26,7 +25,7 @@ FALLBACK_SCENE_PROMPT = (
     "a weathered road leading toward distant mountains at dusk, mysterious ruins "
     "on the horizon, painterly realism, no words or labels."
 )
-TURN_FINAL_TOOL_NAMES = {"draw_scene", "suggest_actions"}
+TURN_FINAL_TOOL_NAMES = {"draw_scene"}
 
 
 def _tool_calls_only_finish_visible_turn(function_calls) -> bool:
@@ -79,31 +78,6 @@ def _log_empty_response(response) -> None:
     )
 
 
-def _recover_suggestions(chat_session, prompt: str) -> list[str]:
-    """Ask the model to identify linkable phrases already shown to the player."""
-    try:
-        response = model_client.send_message(chat_session, prompt)
-        for function_call in _extract_function_calls(response):
-            if function_call.name != "suggest_actions":
-                continue
-            suggestions = normalize_suggestions(function_call.args.get("suggestions"))
-            if not suggestions:
-                continue
-            model_client.send_message(
-                chat_session,
-                [
-                    types.Part.from_function_response(
-                        name="suggest_actions",
-                        response={"status": "Action suggestions displayed to the player."},
-                    )
-                ],
-            )
-            return suggestions
-    except Exception as error:
-        logger.warning("engine.suggestions.recovery_failed", extra={"error": str(error)})
-    return []
-
-
 def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionState):
     """Upload an adventure PDF and create the model-backed game session."""
     logger.info("engine.init.upload.start", extra={"upload_filename": filename})
@@ -111,13 +85,12 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionSta
     session_state.latest_pdf = uploaded_pdf
     session_state.chat_session = model_client.create_chat_session(
         system_instruction=build_system_instruction(),
-        tools=[roll_dice, draw_scene_tool, suggest_actions_tool],
+        tools=[roll_dice, draw_scene_tool],
     )
 
     response = model_client.send_message(session_state.chat_session, build_initial_prompt(uploaded_pdf))
     dm_text = ""
     image_data = None
-    suggestions = []
 
     while True:
         extracted_text, extracted_image = _extract_text_and_image(response)
@@ -138,8 +111,6 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionSta
             else:
                 dispatch_result = tool_dispatcher.dispatch(function_call)
                 tool_response = dispatch_result.response
-                if dispatch_result.suggestions is not None:
-                    suggestions = dispatch_result.suggestions
             tool_responses.append(types.Part.from_function_response(name=function_call.name, response=tool_response))
 
         response = model_client.send_message(session_state.chat_session, tool_responses)
@@ -153,16 +124,7 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionSta
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 
-    suggestions = suggestions_in_text(suggestions, dm_text)
-    if not suggestions:
-        recovered_suggestions = _recover_suggestions(
-            session_state.chat_session,
-            "The opening invitation is already shown. Call suggest_actions now with 2 or 3 "
-            "natural readiness phrases that appear verbatim in that text. Do not write any "
-            "narrative or call another tool.",
-        )
-        suggestions = suggestions_in_text(recovered_suggestions, dm_text)
-    return dm_text, image_data, suggestions
+    return dm_text, image_data
 
 
 def _yield_completed_images(pending_jobs):
@@ -190,12 +152,10 @@ def process_action(player_text: str, session_state: SessionState):
         current_input = player_text
         dm_text_full = ""
         message_id = 0
-        message_texts = {message_id: ""}
         pending_image_jobs = []
         stream_chunk_count = 0
         function_call_count = 0
         finish_reasons = []
-        latest_suggestions = None
 
         while True:
             response = model_client.send_message_stream(chat_session, current_input)
@@ -206,7 +166,6 @@ def process_action(player_text: str, session_state: SessionState):
                 for part in getattr(getattr((getattr(chunk, "candidates", None) or [None])[0], "content", None), "parts", None) or []:
                     if getattr(part, "text", None):
                         dm_text_full += part.text
-                        message_texts[message_id] += part.text
                         yield {"type": "text_chunk", "text": part.text, "message_id": message_id}
 
                 finish_reasons.extend(
@@ -229,8 +188,6 @@ def process_action(player_text: str, session_state: SessionState):
                 for event in dispatch_result.events:
                     yield event
                     emitted_tool_call = emitted_tool_call or event["type"] == "tool_call"
-                if dispatch_result.suggestions is not None:
-                    latest_suggestions = dispatch_result.suggestions
                 if dispatch_result.scene_future:
                     pending_image_jobs.append(dispatch_result.scene_future)
                 tool_responses.append(
@@ -250,7 +207,6 @@ def process_action(player_text: str, session_state: SessionState):
             current_input = tool_responses
             if emitted_tool_call:
                 message_id += 1
-                message_texts[message_id] = ""
 
         while pending_image_jobs:
             image_job = pending_image_jobs.pop(0)
@@ -273,22 +229,10 @@ def process_action(player_text: str, session_state: SessionState):
             recovery_text, _ = _extract_text_and_image(recovery_response)
             if recovery_text:
                 dm_text_full = recovery_text
-                message_texts[message_id] = recovery_text
                 yield {"type": "text_chunk", "text": recovery_text, "message_id": message_id}
             else:
                 logger.warning("engine.action.recovery_empty")
 
-        grouped_suggestions = suggestions_by_message(latest_suggestions or [], message_texts)
-        if not grouped_suggestions:
-            recovered_suggestions = _recover_suggestions(
-                chat_session,
-                "Your immediately preceding Dungeon Master response is already shown. Call "
-                "suggest_actions now with 2 to 4 natural, spoiler-free action phrases that "
-                "appear verbatim in that response. Do not write any narrative or call another tool.",
-            )
-            grouped_suggestions = suggestions_by_message(recovered_suggestions, message_texts)
-        for suggestion_message_id, items in grouped_suggestions.items():
-            yield {"type": "suggestions", "items": items, "message_id": suggestion_message_id}
         yield {"type": "done"}
     except Exception as error:
         logger.exception("engine.action.failed", extra={"error": str(error)})
