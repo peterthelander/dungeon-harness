@@ -26,6 +26,14 @@ FALLBACK_SCENE_PROMPT = (
     "a weathered road leading toward distant mountains at dusk, mysterious ruins "
     "on the horizon, painterly realism, no words or labels."
 )
+TURN_FINAL_TOOL_NAMES = {"draw_scene", "suggest_actions"}
+
+
+def _tool_calls_only_finish_visible_turn(function_calls) -> bool:
+    return bool(function_calls) and all(
+        getattr(function_call, "name", None) in TURN_FINAL_TOOL_NAMES
+        for function_call in function_calls
+    )
 
 
 def _extract_text_and_image(response):
@@ -191,6 +199,7 @@ def process_action(player_text: str, session_state: SessionState):
 
         while True:
             response = model_client.send_message_stream(chat_session, current_input)
+            text_length_before_request = len(dm_text_full.strip())
             function_calls = []
             for chunk in response:
                 stream_chunk_count += 1
@@ -227,6 +236,16 @@ def process_action(player_text: str, session_state: SessionState):
                 tool_responses.append(
                     types.Part.from_function_response(name=function_call.name, response=dispatch_result.response)
                 )
+
+            if (
+                len(dm_text_full.strip()) > text_length_before_request
+                and _tool_calls_only_finish_visible_turn(function_calls)
+            ):
+                logger.info(
+                    "engine.action.finish_after_visible_tool_calls tool_names=%s",
+                    [function_call.name for function_call in function_calls],
+                )
+                break
 
             current_input = tool_responses
             if emitted_tool_call:

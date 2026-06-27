@@ -193,6 +193,47 @@ class ProcessActionTests(unittest.TestCase):
         self.assertIn({"type": "image", "image_data": "data:image/png;base64,storm"}, events)
         self.assertIn({"type": "text_chunk", "text": "Lightning cracks over the spire.", "message_id": 0}, events)
 
+    def test_process_action_does_not_continue_after_visible_scene_tool_turn(self):
+        chat_session = MagicMock()
+        draw_scene_fc = SimpleNamespace(name="draw_scene", args={"visual_description": "paint the rogue"})
+        chat_session.send_message_stream.side_effect = [
+            iter([make_chunk(text="A rogue emerges. Confirm or Revise hero?", function_calls=[draw_scene_fc])]),
+        ]
+
+        fake_future = MagicMock()
+        fake_future.done.return_value = False
+        fake_future.result.return_value = "data:image/png;base64,rogue"
+
+        session_state = SessionState(chat_session=chat_session)
+
+        with patch.object(self.engine.scene_renderer, "submit", return_value=fake_future):
+            events = list(self.engine.process_action("make me a rogue", session_state))
+
+        self.assertEqual(chat_session.send_message_stream.call_count, 1)
+        self.assertEqual(
+            events,
+            [
+                {"type": "text_chunk", "text": "A rogue emerges. Confirm or Revise hero?", "message_id": 0},
+                {"type": "image", "image_data": "data:image/png;base64,rogue"},
+                {"type": "done"},
+            ],
+        )
+
+    def test_process_action_does_not_continue_after_visible_suggestions_turn(self):
+        chat_session = MagicMock()
+        suggestions_fc = SimpleNamespace(name="suggest_actions", args={"suggestions": ["Confirm", "Revise hero"]})
+        chat_session.send_message_stream.side_effect = [
+            iter([make_chunk(text="A rogue emerges. Confirm or Revise hero?", function_calls=[suggestions_fc])]),
+        ]
+        session_state = SessionState(chat_session=chat_session)
+
+        events = list(self.engine.process_action("make me a rogue", session_state))
+
+        self.assertEqual(chat_session.send_message_stream.call_count, 1)
+        self.assertIn({"type": "text_chunk", "text": "A rogue emerges. Confirm or Revise hero?", "message_id": 0}, events)
+        self.assertIn({"type": "suggestions", "items": ["Confirm", "Revise hero"], "message_id": 0}, events)
+        self.assertIn({"type": "done"}, events)
+
     def test_upload_pdf_and_init_reads_function_calls_from_candidate_parts(self):
         uploaded_pdf = SimpleNamespace(name="module.pdf", state=SimpleNamespace(name="ACTIVE"))
         chat_session = MagicMock()
