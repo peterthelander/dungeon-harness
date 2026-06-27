@@ -38,10 +38,20 @@ function deactivateInlineActions() {
     });
 }
 
+const QUESTION_FRAGMENT_PATTERNS = [
+    /^(what|which|how|where|when|why)\b/i,
+    /\b(will|would|do|does|did) you\b/i,
+    /\bsay or do\b/i,
+    /\bdo in response\b/i,
+    /\bwhat do you do\b/i,
+    /\?$/
+];
+
 function isActionableBoldLabel(label) {
     if (!label || label.length > 100) return false;
     if (/^[A-Za-z][A-Za-z ]+:$/.test(label)) return false;
     if (/^[A-Za-z][A-Za-z ]+:\s*[-+]?\d+$/.test(label)) return false;
+    if (QUESTION_FRAGMENT_PATTERNS.some((pattern) => pattern.test(label))) return false;
     return true;
 }
 

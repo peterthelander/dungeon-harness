@@ -23,6 +23,9 @@ class PromptTests(unittest.TestCase):
         self.assertIn("choose, inspect, ask about, approach, or select", instruction)
         self.assertIn("Do not bold stat labels", instruction)
         self.assertIn("background rumors", instruction)
+        self.assertIn("two or more concrete choices", instruction)
+        self.assertIn("fragments of the question itself", instruction)
+        self.assertIn("reasonably interact with them next", instruction)
         self.assertNotIn("suggest_actions", instruction)
 
 
