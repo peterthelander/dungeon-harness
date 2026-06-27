@@ -1,20 +1,26 @@
 from flask import Flask, request, jsonify, Response, session
-import http.client
-import ipaddress
 import json
 import logging
 import os
-import socket
-import ssl
 import tempfile
 import urllib.parse
-import urllib.request
 import uuid
 from typing import Optional
 from werkzeug.utils import secure_filename
 
 from app.config import load_runtime_config
 from app.engine import process_action, upload_pdf_and_init
+from app.module_loader import (
+    ALLOWED_EXTENSIONS,
+    ALLOWED_UPLOAD_MIME_TYPES,
+    download_remote_file,
+    is_allowed_filename,
+    is_allowed_mime_type,
+    is_private_host,
+    looks_like_pdf,
+    open_pinned_response,
+    validate_remote_url,
+)
 from app.state import SessionStore
 
 
@@ -25,16 +31,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 config = load_runtime_config()
 session_store = SessionStore(config.session_ttl_seconds, config.max_sessions)
-
-ALLOWED_EXTENSIONS = {".pdf"}
-ALLOWED_UPLOAD_MIME_TYPES = {
-    "application/pdf",
-    "application/octet-stream",
-}
-ALLOWED_REMOTE_CONTENT_TYPES = {
-    "application/pdf",
-    "application/octet-stream",
-}
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = config.flask_secret_key
@@ -76,149 +72,24 @@ def _get_session_state():
     return session_store.get_or_create(session_id)
 
 
-def _is_private_host(hostname: str) -> bool:
-    try:
-        addresses = _resolve_public_addresses(hostname)
-    except socket.gaierror:
-        return True
-    return not addresses
-
-
-def _resolve_public_addresses(hostname: str, port: Optional[int] = None) -> tuple[str, ...]:
-    addresses = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, port)}
-    public_addresses = []
-    for address in addresses:
-        ip = ipaddress.ip_address(address)
-        if not ip.is_global:
-            return ()
-        public_addresses.append(address)
-    return tuple(public_addresses)
-
-
-def _validate_remote_url(url: str):
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        return None, "Only http/https URLs are allowed."
-    if not parsed.hostname:
-        return None, "URL must include a hostname."
-    if parsed.username or parsed.password:
-        return None, "URLs with credentials are not allowed."
-    try:
-        port = parsed.port
-    except ValueError:
-        return None, "URL contains an invalid port."
-    if not _resolve_public_addresses(parsed.hostname, port):
-        return None, "Private or local network addresses are not allowed."
-    return parsed.geturl(), None
-
-
-def _is_allowed_filename(filename: str) -> bool:
-    ext = os.path.splitext(filename.lower())[1]
-    return ext in ALLOWED_EXTENSIONS
-
-
-def _is_allowed_mime_type(content_type: Optional[str]) -> bool:
-    if not content_type:
-        return True
-    return content_type.split(";")[0].strip().lower() in ALLOWED_UPLOAD_MIME_TYPES
-
-
-class _PinnedHTTPConnection(http.client.HTTPConnection):
-    def __init__(self, host: str, port: int, address: str, timeout: int):
-        super().__init__(host, port=port, timeout=timeout)
-        self._address = address
-
-    def connect(self):
-        self.sock = socket.create_connection((self._address, self.port), self.timeout)
-
-
-class _PinnedHTTPSConnection(http.client.HTTPSConnection):
-    def __init__(self, host: str, port: int, address: str, timeout: int):
-        super().__init__(host, port=port, timeout=timeout, context=ssl.create_default_context())
-        self._address = address
-
-    def connect(self):
-        raw_socket = socket.create_connection((self._address, self.port), self.timeout)
-        self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
-
-
-def _looks_like_pdf(path: str) -> bool:
-    with open(path, "rb") as uploaded_file:
-        return uploaded_file.read(5) == b"%PDF-"
+_is_private_host = is_private_host
+_validate_remote_url = validate_remote_url
+_is_allowed_filename = is_allowed_filename
+_is_allowed_mime_type = is_allowed_mime_type
+_looks_like_pdf = looks_like_pdf
 
 
 def _open_pinned_response(url: str):
-    parsed = urllib.parse.urlparse(url)
-    hostname = parsed.hostname
-    if not hostname:
-        raise ValueError("URL must include a hostname.")
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    addresses = _resolve_public_addresses(hostname, port)
-    if not addresses:
-        raise ValueError("Private or local network addresses are not allowed.")
-
-    target = urllib.parse.urlunparse(("", "", parsed.path or "/", "", parsed.query, ""))
-    host_header = hostname if parsed.port is None else f"{hostname}:{parsed.port}"
-    last_error = None
-    for address in addresses:
-        connection_class = _PinnedHTTPSConnection if parsed.scheme == "https" else _PinnedHTTPConnection
-        connection = connection_class(hostname, port, address, config.remote_download_timeout_seconds)
-        try:
-            connection.request("GET", target, headers={"Host": host_header, "User-Agent": "DungeonHarness/1.0"})
-            return connection, connection.getresponse()
-        except OSError as error:
-            connection.close()
-            last_error = error
-    raise ValueError("Remote server could not be reached.") from last_error
+    return open_pinned_response(url, config.remote_download_timeout_seconds)
 
 
 def _download_remote_file(validated_url: str, temp_path: str):
-    current_url = validated_url
-    for _ in range(4):
-        connection = None
-        try:
-            connection, response = _open_pinned_response(current_url)
-            if response.status in {301, 302, 303, 307, 308}:
-                location = response.headers.get("Location")
-                if not location:
-                    raise ValueError("Remote server returned an invalid redirect.")
-                candidate = urllib.parse.urljoin(current_url, location)
-                current_url, validation_error = _validate_remote_url(candidate)
-                if validation_error:
-                    raise ValueError(validation_error)
-                continue
-            if not 200 <= response.status < 300:
-                raise ValueError("Remote server returned an unsuccessful status.")
-
-            content_type = response.headers.get("Content-Type", "")
-            normalized_type = content_type.split(";")[0].strip().lower()
-            if normalized_type and normalized_type not in ALLOWED_REMOTE_CONTENT_TYPES:
-                raise ValueError("Remote file content type is not allowed.")
-
-            content_length = response.headers.get("Content-Length")
-            if content_length:
-                try:
-                    parsed_length = int(content_length)
-                except ValueError:
-                    raise ValueError("Remote server returned an invalid content length header.")
-                if parsed_length > config.max_remote_download_bytes:
-                    raise ValueError("Remote file exceeds configured size limit.")
-
-            bytes_read = 0
-            with open(temp_path, "wb") as out_file:
-                while True:
-                    chunk = response.read(64 * 1024)
-                    if not chunk:
-                        break
-                    bytes_read += len(chunk)
-                    if bytes_read > config.max_remote_download_bytes:
-                        raise ValueError("Remote file exceeds configured size limit.")
-                    out_file.write(chunk)
-            return
-        finally:
-            if connection:
-                connection.close()
-    raise ValueError("Too many redirects.")
+    return download_remote_file(
+        validated_url,
+        temp_path,
+        config.remote_download_timeout_seconds,
+        config.max_remote_download_bytes,
+    )
 
 
 @app.route("/")

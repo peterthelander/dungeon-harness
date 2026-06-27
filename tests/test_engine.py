@@ -59,14 +59,14 @@ class ProcessActionTests(unittest.TestCase):
         self.assertEqual(list(parameters), ["visual_description"])
 
     def test_normalize_suggestions_filters_invalid_and_duplicate_labels(self):
-        suggestions = self.engine._normalize_suggestions(
+        suggestions = self.engine.normalize_suggestions(
             [" Listen ", "listen", "", 7, "A" * 81, "Open door", "Ask guard"]
         )
 
         self.assertEqual(suggestions, ["Listen", "Open door", "Ask guard"])
 
     def test_suggestions_in_text_keeps_only_visible_phrases(self):
-        suggestions = self.engine._suggestions_in_text(
+        suggestions = self.engine.suggestions_in_text(
             ["Fighter", "Examine entrance", "Magic-User"],
             "Choose a Fighter, Rogue, or Magic-User.",
         )
@@ -165,14 +165,13 @@ class ProcessActionTests(unittest.TestCase):
 
         session_state = SessionState(chat_session=chat_session)
 
-        with patch.object(self.engine.IMAGE_EXECUTOR, "submit", return_value=fake_future) as submit_mock:
+        with patch.object(self.engine.scene_renderer, "submit", return_value=fake_future) as submit_mock:
             events = list(self.engine.process_action("open the door", session_state))
 
         self.assertIn({"type": "image", "image_data": "data:image/png;base64,abc123"}, events)
         self.assertIn({"type": "done"}, events)
         submit_mock.assert_called_once()
-        called_args = submit_mock.call_args[0]
-        self.assertEqual(called_args[1], "misty dungeon hall")
+        submit_mock.assert_called_once_with("misty dungeon hall")
 
     def test_process_action_reads_function_calls_from_candidate_parts(self):
         chat_session = MagicMock()
@@ -188,7 +187,7 @@ class ProcessActionTests(unittest.TestCase):
 
         session_state = SessionState(chat_session=chat_session)
 
-        with patch.object(self.engine.IMAGE_EXECUTOR, "submit", return_value=fake_future):
+        with patch.object(self.engine.scene_renderer, "submit", return_value=fake_future):
             events = list(self.engine.process_action("step outside", session_state))
 
         self.assertIn({"type": "image", "image_data": "data:image/png;base64,storm"}, events)
@@ -214,7 +213,7 @@ class ProcessActionTests(unittest.TestCase):
                 "send_message",
                 side_effect=[initial_response, followup_response, make_chunk()],
             ),
-            patch.object(self.engine, "draw_scene", side_effect=fake_draw_scene),
+            patch.object(self.engine.scene_renderer, "render", side_effect=fake_draw_scene),
         ):
             dm_text, image_data, suggestions = self.engine.upload_pdf_and_init("/tmp/module.pdf", "module.pdf", session_state)
 

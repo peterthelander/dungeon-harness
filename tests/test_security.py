@@ -6,6 +6,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import app.module_loader as module_loader
+
 
 def load_main_module():
     fake_flask = types.ModuleType("flask")
@@ -107,7 +109,7 @@ class SecurityValidationTests(unittest.TestCase):
         addresses = [(None, None, None, None, ("93.184.216.34", 0))]
         with (
             patch.object(socket, "getaddrinfo", return_value=addresses),
-            patch.object(self.main, "_PinnedHTTPConnection", FakeConnection),
+            patch.object(module_loader, "PinnedHTTPConnection", FakeConnection),
         ):
             connection, response = self.main._open_pinned_response("http://example.com/module.pdf")
 
