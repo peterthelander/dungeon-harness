@@ -26,12 +26,13 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("suggestedActions", script)
         self.assertIn("const ScenePage", script)
 
-    def test_new_action_starts_a_fresh_scene_page(self):
+    def test_new_action_keeps_current_scene_until_response_starts(self):
         script = read_static_file("script.js")
 
-        self.assertIn("function resetScenePage()", script)
-        self.assertIn("resetScenePage();\n    ScenePage.render(scenePageData, { stickToTop: true });\n    ScenePage.clearInput();", script)
-        self.assertNotIn("appendMessage(text, 'player')", script)
+        self.assertIn("appendMessage(text, 'player');", script)
+        self.assertIn("function startFreshScene()", script)
+        self.assertIn("if (data.type === 'text_chunk') {\n                        startFreshScene();", script)
+        self.assertNotIn("resetScenePage();\n    ScenePage.render(scenePageData, { stickToTop: true });\n    ScenePage.clearInput();", script)
 
     def test_scene_page_css_owns_responsive_layout(self):
         style = read_static_file("style.css")

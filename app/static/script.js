@@ -410,8 +410,7 @@ async function sendAction(suggestedText = null) {
     if (!text || actionInProgress) return;
     actionInProgress = true;
 
-    resetScenePage();
-    ScenePage.render(scenePageData, { stickToTop: true });
+    appendMessage(text, 'player');
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
@@ -419,6 +418,16 @@ async function sendAction(suggestedText = null) {
     const dmMessages = new Map();
     const dmText = new Map();
     const inlineSuggestions = new Map();
+    let freshSceneStarted = false;
+
+    function startFreshScene() {
+        if (freshSceneStarted) return;
+        freshSceneStarted = true;
+        resetScenePage();
+        ScenePage.render(scenePageData, { stickToTop: true });
+        dmMessages.clear();
+        dmText.clear();
+    }
 
     function getDmMessage(messageId) {
         if (!dmMessages.has(messageId)) {
@@ -463,6 +472,7 @@ async function sendAction(suggestedText = null) {
                     const data = JSON.parse(line);
 
                     if (data.type === 'text_chunk') {
+                        startFreshScene();
                         const messageId = data.message_id ?? 0;
                         msgBlock = getDmMessage(messageId);
                         const fullText = (dmText.get(messageId) || '') + data.text;
@@ -472,10 +482,12 @@ async function sendAction(suggestedText = null) {
                             suggestedActions: inlineSuggestions.get(messageId) || []
                         });
                     } else if (data.type === 'tool_call') {
+                        startFreshScene();
                         appendSystemMessage(data.message);
                     } else if (data.type === 'status') {
                         ScenePage.setBusy(true, data.message);
                     } else if (data.type === 'suggestions') {
+                        startFreshScene();
                         const messageId = data.message_id ?? 0;
                         msgBlock = getDmMessage(messageId);
                         const actions = normalizeSuggestedActions(data.items);
@@ -483,8 +495,11 @@ async function sendAction(suggestedText = null) {
                         scenePageData.suggestedActions = actions;
                         updateSceneBlock(msgBlock, { suggestedActions: actions });
                     } else if (data.type === 'image') {
+                        startFreshScene();
                         setHeroImage(data.image_data);
                     } else if (data.type === 'error') {
+                        startFreshScene();
+                        msgBlock = getDmMessage(0);
                         updateSceneBlock(msgBlock, {
                             markdown: `${msgBlock.markdown || ''}\n\nERROR: ${data.error}`
                         });
@@ -496,6 +511,8 @@ async function sendAction(suggestedText = null) {
         }
     } catch (err) {
         console.error(err);
+        startFreshScene();
+        msgBlock = getDmMessage(0);
         updateSceneBlock(msgBlock, { markdown: 'CRITICAL: Failed to communicate with engine backend.' });
     } finally {
         ScenePage.setBusy(false, 'Send action');
