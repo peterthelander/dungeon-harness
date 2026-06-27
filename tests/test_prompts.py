@@ -19,6 +19,10 @@ class PromptTests(unittest.TestCase):
         self.assertIn("immediate choices clear in natural prose", instruction)
         self.assertIn("never begin the adventure early", instruction)
         self.assertIn("confirming or revising the hero", instruction)
+        self.assertIn("Markdown bold", instruction)
+        self.assertIn("choose, inspect, ask about, approach, or select", instruction)
+        self.assertIn("Do not bold stat labels", instruction)
+        self.assertIn("background rumors", instruction)
         self.assertNotIn("suggest_actions", instruction)
 
 

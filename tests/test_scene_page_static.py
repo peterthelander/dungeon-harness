@@ -25,6 +25,10 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("narrative", script)
         self.assertNotIn("suggestedActions", script)
         self.assertNotIn("linkifySuggestions", script)
+        self.assertIn("function activateBoldActions", script)
+        self.assertIn("function isActionableBoldLabel", script)
+        self.assertIn("querySelectorAll('strong')", script)
+        self.assertIn("sendAction(label)", script)
         self.assertIn("const ScenePage", script)
 
     def test_new_action_keeps_current_scene_until_response_starts(self):
@@ -34,6 +38,19 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("function startFreshScene()", script)
         self.assertIn("if (data.type === 'text_chunk') {\n                        startFreshScene();", script)
         self.assertNotIn("resetScenePage();\n    ScenePage.render(scenePageData, { stickToTop: true });\n    ScenePage.clearInput();", script)
+
+    def test_bold_actions_skip_stat_labels(self):
+        script = read_static_file("script.js")
+
+        self.assertIn("^[A-Za-z][A-Za-z ]+:", script)
+        self.assertIn("isActionableBoldLabel(label)", script)
+
+    def test_bold_actions_have_inline_button_styles(self):
+        style = read_static_file("style.css")
+
+        self.assertIn(".message.dm .inline-action", style)
+        self.assertIn("font-weight: 700", style)
+        self.assertIn(".inline-action--inactive", style)
 
     def test_scene_page_css_owns_responsive_layout(self):
         style = read_static_file("style.css")

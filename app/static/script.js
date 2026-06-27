@@ -30,6 +30,39 @@ function syncNarrativeFromBlocks() {
         .join('\n\n');
 }
 
+function deactivateInlineActions() {
+    document.querySelectorAll('.inline-action').forEach((button) => {
+        button.classList.add('inline-action--inactive');
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+    });
+}
+
+function isActionableBoldLabel(label) {
+    if (!label || label.length > 100) return false;
+    if (/^[A-Za-z][A-Za-z ]+:$/.test(label)) return false;
+    if (/^[A-Za-z][A-Za-z ]+:\s*[-+]?\d+$/.test(label)) return false;
+    return true;
+}
+
+function activateBoldActions(messageElement) {
+    messageElement.querySelectorAll('strong').forEach((strong) => {
+        if (strong.closest('a, button')) return;
+        const label = strong.textContent.trim();
+        if (!isActionableBoldLabel(label)) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'inline-action';
+        button.textContent = label;
+        button.setAttribute('aria-label', `Choose ${label}`);
+        button.addEventListener('click', () => {
+            if (!actionInProgress) sendAction(label);
+        });
+        strong.replaceWith(button);
+    });
+}
+
 const ScenePage = (() => {
     let rootElement;
     let contentElement;
@@ -140,6 +173,9 @@ const ScenePage = (() => {
         article.innerHTML = DOMPurify.sanitize(marked.parse(block.markdown || ''));
         if (block.role === 'dm' && !block.markdown) {
             article.hidden = true;
+        }
+        if (block.role === 'dm') {
+            activateBoldActions(article);
         }
         return article;
     }
@@ -326,8 +362,8 @@ function handleKeyPress(e) {
     }
 }
 
-async function sendAction() {
-    const text = ScenePage.getInputValue().trim();
+async function sendAction(suggestedText = null) {
+    const text = (suggestedText || ScenePage.getInputValue()).trim();
 
     if (!text || actionInProgress) return;
     actionInProgress = true;
@@ -335,6 +371,7 @@ async function sendAction() {
     appendMessage(text, 'player');
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
+    deactivateInlineActions();
     const dmMessages = new Map();
     const dmText = new Map();
     let freshSceneStarted = false;

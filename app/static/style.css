@@ -270,6 +270,30 @@ button.primary:disabled {
     font-size: 1.1em;
 }
 
+.message.dm .inline-action {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #f0bd78;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.message.dm .inline-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.message.dm .inline-action--inactive {
+    color: inherit;
+    cursor: default;
+    text-decoration: none;
+}
 
 .scene-page__input {
     width: min(100%, 1320px);
