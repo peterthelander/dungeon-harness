@@ -170,10 +170,6 @@ const ScenePage = (() => {
             ? 'scene-page__layout scene-page__layout--with-hero'
             : 'scene-page__layout';
 
-        if (data.heroImageUrl) {
-            layout.append(renderHeroImage(data.heroImageUrl));
-        }
-
         const content = document.createElement('div');
         content.className = 'scene-page__content';
         const blocks = Array.isArray(data.blocks) && data.blocks.length
@@ -181,6 +177,10 @@ const ScenePage = (() => {
             : [{ type: 'message', role: 'dm', markdown: data.narrative || '', suggestedActions: data.suggestedActions }];
         blocks.forEach((block) => content.append(renderBlock(block)));
         layout.append(content);
+
+        if (data.heroImageUrl) {
+            layout.append(renderHeroImage(data.heroImageUrl));
+        }
         fragment.append(layout);
         return fragment;
     }

@@ -163,15 +163,18 @@ button.primary:disabled {
 .scene-page__layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "content";
     gap: 22px;
     align-items: start;
 }
 
 .scene-page__layout--with-hero {
-    grid-template-columns: minmax(280px, 42%) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+    grid-template-areas: "content hero";
 }
 
 .scene-page__hero {
+    grid-area: hero;
     min-width: 0;
     background-color: #050505;
     border: 1px solid var(--border-color);
@@ -189,6 +192,7 @@ button.primary:disabled {
 }
 
 .scene-page__content {
+    grid-area: content;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -355,6 +359,8 @@ button.primary:disabled {
 
     .scene-page__layout--with-hero {
         grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "hero"
+                             "content";
     }
 
     .scene-page__hero img {
@@ -411,7 +417,8 @@ button.primary:disabled {
     }
 
     .scene-page__layout--with-hero {
-        grid-template-columns: minmax(220px, 45%) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 45%);
+        grid-template-areas: "content hero";
         gap: 12px;
     }
 
