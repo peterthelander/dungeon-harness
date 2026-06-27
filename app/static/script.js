@@ -22,6 +22,14 @@ const scenePageData = {
     blocks: []
 };
 
+function resetScenePage() {
+    scenePageData.title = undefined;
+    scenePageData.heroImageUrl = undefined;
+    scenePageData.narrative = '';
+    scenePageData.suggestedActions = [];
+    scenePageData.blocks = [];
+}
+
 function normalizeSuggestedActions(items) {
     return [...new Set((Array.isArray(items) ? items : [])
         .map((item) => {
@@ -140,10 +148,10 @@ const ScenePage = (() => {
 
     function render(data, options = {}) {
         if (!contentElement) return;
-        const shouldStickToBottom = options.stickToBottom !== false;
+        const shouldStickToTop = options.stickToTop === true;
         contentElement.replaceChildren(renderScene(data));
-        if (shouldStickToBottom && rootElement) {
-            rootElement.scrollTop = rootElement.scrollHeight;
+        if (shouldStickToTop && rootElement) {
+            rootElement.scrollTop = 0;
         }
     }
 
@@ -294,7 +302,7 @@ function setHeroImage(imageData) {
 function initializeScenePage() {
     const root = document.getElementById('scene-page-root');
     ScenePage.init(root, { onSubmit: () => sendAction() });
-    ScenePage.render(scenePageData, { stickToBottom: false });
+    ScenePage.render(scenePageData, { stickToTop: true });
 }
 
 // Start Initialization Request to the Backend
@@ -357,8 +365,7 @@ async function handleInitializationResponse(response) {
     const data = await response.json();
 
     if (response.ok) {
-        scenePageData.blocks = [];
-        scenePageData.narrative = '';
+        resetScenePage();
         scenePageData.suggestedActions = normalizeSuggestedActions(data.suggestions);
         scenePageData.heroImageUrl = data.image_data || undefined;
 
@@ -373,7 +380,7 @@ async function handleInitializationResponse(response) {
         setTimeout(() => {
             overlay.style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
-            ScenePage.render(scenePageData, { stickToBottom: false });
+            ScenePage.render(scenePageData, { stickToTop: true });
             ScenePage.focusInput();
         }, 500);
     } else {
@@ -403,7 +410,8 @@ async function sendAction(suggestedText = null) {
     if (!text || actionInProgress) return;
     actionInProgress = true;
 
-    appendMessage(text, 'player');
+    resetScenePage();
+    ScenePage.render(scenePageData, { stickToTop: true });
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
