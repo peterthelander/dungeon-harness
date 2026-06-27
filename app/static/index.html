@@ -42,25 +42,7 @@
 
     <!-- Main Game Dashboard -->
     <div id="dashboard">
-        <!-- Visual Horizon (Left) -->
-        <div id="image-canvas-container">
-            <span class="placeholder-text" id="canvas-placeholder">Scene visualizations will appear here...</span>
-            <img id="image-canvas" src="" alt="Thumbnail Scene" style="display: none;" />
-        </div>
-
-        <!-- Chat Interface (Right) -->
-        <div id="right-panel">
-            <!-- Chat History -->
-            <div id="chat-window">
-                <!-- Initial DM message will be dynamically injected here upon upload -->
-            </div>
-
-            <!-- Action Input -->
-            <div id="input-footer">
-                <input type="text" id="action-input" aria-label="Custom action" placeholder="Other…" onkeypress="handleKeyPress(event)" />
-                <button id="send-action-btn" type="button" aria-label="Send action" title="Send action" onclick="sendAction()">↑</button>
-            </div>
-        </div>
+        <main id="scene-page-root" aria-label="Current scene"></main>
     </div>
 
     <!-- Engine Scripts -->
