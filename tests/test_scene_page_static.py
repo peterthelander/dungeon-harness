@@ -53,6 +53,9 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn(".message.dm .inline-action", style)
         self.assertIn("font-weight: 700", style)
         self.assertIn(".inline-action--inactive", style)
+        self.assertIn(".message.system + .message.system", style)
+        self.assertIn("align-self: stretch", style)
+        self.assertIn("margin-bottom: 0.35em", style)
 
     def test_scene_page_css_owns_responsive_layout(self):
         style = read_static_file("style.css")
