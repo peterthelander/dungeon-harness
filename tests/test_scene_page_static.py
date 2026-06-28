@@ -65,9 +65,9 @@ class ScenePageStaticTests(unittest.TestCase):
 
         self.assertIn(".scene-page-scroll", style)
         self.assertIn(".scene-page__layout--with-hero", style)
-        self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(280px, 42%)", style)
+        self.assertIn("grid-template-columns: minmax(320px, 0.85fr) minmax(380px, 1.15fr)", style)
         self.assertIn('grid-template-areas: "content hero"', style)
-        self.assertIn("@media (max-width: 900px) and (orientation: portrait)", style)
+        self.assertIn("@media (max-width: 980px), (orientation: portrait)", style)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", style)
         self.assertIn('grid-template-areas: "hero"', style)
 

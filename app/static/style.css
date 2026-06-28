@@ -147,9 +147,9 @@ button.primary:disabled {
 }
 
 .scene-page__main {
-    width: min(100%, 1320px);
+    width: min(100%, 1760px);
     margin: 0 auto;
-    padding: 24px;
+    padding: clamp(14px, 2vw, 28px);
     flex: 1 0 auto;
 }
 
@@ -164,18 +164,21 @@ button.primary:disabled {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "content";
-    gap: 22px;
+    gap: clamp(14px, 1.8vw, 28px);
     align-items: start;
 }
 
 .scene-page__layout--with-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
+    grid-template-columns: minmax(320px, 0.85fr) minmax(380px, 1.15fr);
     grid-template-areas: "content hero";
+    align-items: stretch;
 }
 
 .scene-page__hero {
     grid-area: hero;
     min-width: 0;
+    align-self: stretch;
+    display: flex;
     background-color: #050505;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -185,8 +188,8 @@ button.primary:disabled {
 .scene-page__hero img {
     display: block;
     width: 100%;
-    max-height: calc(100dvh - 160px);
-    min-height: 260px;
+    height: clamp(360px, calc(100dvh - 160px), 920px);
+    min-height: 0;
     object-fit: contain;
     filter: brightness(0.86);
 }
@@ -296,14 +299,14 @@ button.primary:disabled {
 }
 
 .scene-page__input {
-    width: min(100%, 1320px);
+    width: min(100%, 1760px);
     margin: 0 auto;
     flex: 0 0 auto;
     min-height: 68px;
     display: flex;
     align-items: center;
     background-color: var(--panel-bg);
-    padding: 10px 24px;
+    padding: 10px clamp(14px, 2vw, 28px);
     padding-bottom: max(10px, env(safe-area-inset-bottom));
     gap: 10px;
     border-top: 1px solid var(--border-color);
@@ -352,8 +355,8 @@ button.primary:disabled {
     cursor: wait;
 }
 
-/* Phone portrait: stack image above narrative within one page. */
-@media (max-width: 900px) and (orientation: portrait) {
+/* Narrow and portrait screens: stack image above narrative within one page. */
+@media (max-width: 980px), (orientation: portrait) {
     .scene-page__main {
         padding: 14px;
     }
@@ -365,7 +368,8 @@ button.primary:disabled {
     }
 
     .scene-page__hero img {
-        max-height: none;
+        height: auto;
+        max-height: min(58dvh, 720px);
         min-height: 0;
         aspect-ratio: 4 / 3;
     }
@@ -418,13 +422,14 @@ button.primary:disabled {
     }
 
     .scene-page__layout--with-hero {
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 45%);
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 52%);
         grid-template-areas: "content hero";
         gap: 12px;
     }
 
     .scene-page__hero img {
-        max-height: calc(100dvh - 96px);
+        height: calc(100dvh - 96px);
+        max-height: none;
         min-height: 180px;
     }
 
