@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 
-def load_main_module(process_action_impl=None):
+def load_main_module(process_action_impl=None, session_state_factory=None):
     fake_flask = types.ModuleType("flask")
 
     class FakeJsonResponse(dict):
@@ -52,10 +52,12 @@ def load_main_module(process_action_impl=None):
     fake_engine.upload_pdf_and_init = lambda *args, **kwargs: ("Intro", None, [])
     fake_engine.process_action = process_action_impl or (lambda *args, **kwargs: iter([{"type": "done"}]))
 
-    fake_state = types.ModuleType("app.state")
-    fake_state.SessionStore = lambda *_args, **_kwargs: SimpleNamespace(
-        get_or_create=lambda _session_id: SimpleNamespace(chat_session=object(), action_lock=threading.Lock())
+    default_factory = lambda _session_id: SimpleNamespace(
+        chat_session=object(), action_lock=threading.Lock(), history=[{"type": "message", "role": "dm", "markdown": "Welcome"}], hero_image_url="http://img"
     )
+    factory = session_state_factory or default_factory
+    fake_state = types.ModuleType("app.state")
+    fake_state.SessionStore = lambda *_args, **_kwargs: SimpleNamespace(get_or_create=factory)
 
     sys.modules.pop("app.main", None)
     with patch.dict(
@@ -128,6 +130,48 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(events[2]["type"], "image")
         self.assertEqual(events[3]["type"], "done")
 
+    def test_action_uninitialized_session_returns_400(self):
+        uninit_factory = lambda _sid: SimpleNamespace(chat_session=None, action_lock=threading.Lock(), history=[], hero_image_url=None)
+        main, fake_flask = load_main_module(session_state_factory=uninit_factory)
+        fake_flask.request.json = {"text": "inspect room"}
+        fake_flask.request.headers = {"X-Request-ID": "test-req-123"}
+
+        response = main.action()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Engine not initialized", response["error"])
+        self.assertEqual(response.headers["X-Request-ID"], "test-req-123")
+
+    def test_action_oversized_text_returns_400(self):
+        main, fake_flask = load_main_module()
+        fake_flask.request.json = {"text": "a" * 4001}
+        fake_flask.request.headers = {}
+
+        response = main.action()
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("4,000 characters", response["error"])
+
+    def test_action_concurrent_lock_returns_409(self):
+        locked_state = SimpleNamespace(chat_session=object(), action_lock=threading.Lock(), history=[], hero_image_url=None)
+        locked_state.action_lock.acquire()
+        main, fake_flask = load_main_module(session_state_factory=lambda _sid: locked_state)
+        fake_flask.request.json = {"text": "attack goblin"}
+        fake_flask.request.headers = {}
+
+        response = main.action()
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("previous action is still being processed", response["error"])
+
+    def test_get_session_returns_state(self):
+        main, fake_flask = load_main_module()
+        fake_flask.request.headers = {}
+
+        response = main.get_session()
+        self.assertTrue(response["initialized"])
+        self.assertEqual(response["hero_image_url"], "http://img")
+        self.assertEqual(len(response["blocks"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+

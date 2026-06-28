@@ -246,6 +246,23 @@ def action():
     return response
 
 
+@app.route("/session", methods=["GET"])
+def get_session():
+    request_id = _request_id()
+    session_state = _get_session_state()
+    initialized = session_state.chat_session is not None
+    logger.info("session.get", extra={"request_id": request_id, "initialized": initialized})
+    return _json_ok(
+        {
+            "initialized": initialized,
+            "blocks": session_state.history if initialized else [],
+            "hero_image_url": session_state.hero_image_url if initialized else None,
+        },
+        request_id,
+    )
+
+
 @app.errorhandler(413)
 def request_entity_too_large(_error):
     return _json_error("Upload is too large.", 413, code="upload_too_large")
+

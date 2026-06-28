@@ -35,7 +35,7 @@ A near-term goal is to make the hosted link safe and useful enough to share with
 
 ### Step 0: Review and Tidy
 
-Before adding new release foundations, do a short review pass to reduce obvious tech debt and make the next changes easier to land safely.
+Before adding new release foundations, do a short review pass to reduce obvious tech debt and make the next changes easier to land safely. See [STEP0_REVIEW.md](STEP0_REVIEW.md) for the first review pass and proposed private-feedback implementation order.
 
 - Review current route, engine, state, and frontend boundaries for any tangled responsibilities that will make persistence harder.
 - Identify brittle spots in streaming, session cleanup, upload handling, and frontend recovery behavior.

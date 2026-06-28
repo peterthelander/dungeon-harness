@@ -124,6 +124,8 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionSta
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 
+    session_state.history = [{"type": "message", "role": "dm", "markdown": dm_text}]
+    session_state.hero_image_url = image_data
     return dm_text, image_data
 
 
@@ -147,93 +149,118 @@ def process_action(player_text: str, session_state: SessionState):
         yield {"type": "error", "error": "Engine not initialized. Please upload a PDF first."}
         return
 
-    try:
-        logger.info("engine.action.start text_length=%s text_preview=%r", len(player_text), " ".join(player_text.split())[:240])
-        current_input = player_text
-        dm_text_full = ""
-        message_id = 0
-        pending_image_jobs = []
-        stream_chunk_count = 0
-        function_call_count = 0
-        finish_reasons = []
+    def _generate_events():
+        try:
+            logger.info("engine.action.start text_length=%s text_preview=%r", len(player_text), " ".join(player_text.split())[:240])
+            current_input = player_text
+            dm_text_full = ""
+            message_id = 0
+            pending_image_jobs = []
+            stream_chunk_count = 0
+            function_call_count = 0
+            finish_reasons = []
 
-        while True:
-            response = model_client.send_message_stream(chat_session, current_input)
-            text_length_before_request = len(dm_text_full.strip())
-            function_calls = []
-            for chunk in response:
-                stream_chunk_count += 1
-                for part in getattr(getattr((getattr(chunk, "candidates", None) or [None])[0], "content", None), "parts", None) or []:
-                    if getattr(part, "text", None):
-                        dm_text_full += part.text
-                        yield {"type": "text_chunk", "text": part.text, "message_id": message_id}
+            while True:
+                response = model_client.send_message_stream(chat_session, current_input)
+                text_length_before_request = len(dm_text_full.strip())
+                function_calls = []
+                for chunk in response:
+                    stream_chunk_count += 1
+                    for part in getattr(getattr((getattr(chunk, "candidates", None) or [None])[0], "content", None), "parts", None) or []:
+                        if getattr(part, "text", None):
+                            dm_text_full += part.text
+                            yield {"type": "text_chunk", "text": part.text, "message_id": message_id}
 
-                finish_reasons.extend(
-                    str(candidate.finish_reason)
-                    for candidate in getattr(chunk, "candidates", None) or []
-                    if getattr(candidate, "finish_reason", None) is not None
+                    finish_reasons.extend(
+                        str(candidate.finish_reason)
+                        for candidate in getattr(chunk, "candidates", None) or []
+                        if getattr(candidate, "finish_reason", None) is not None
+                    )
+                    chunk_function_calls = _extract_function_calls(chunk)
+                    function_calls.extend(chunk_function_calls)
+                    function_call_count += len(chunk_function_calls)
+                    yield from _yield_completed_images(pending_image_jobs)
+
+                if not function_calls:
+                    break
+
+                tool_responses = []
+                emitted_tool_call = False
+                for function_call in function_calls:
+                    dispatch_result = tool_dispatcher.dispatch(function_call)
+                    for event in dispatch_result.events:
+                        yield event
+                        emitted_tool_call = emitted_tool_call or event["type"] == "tool_call"
+                    if dispatch_result.scene_future:
+                        pending_image_jobs.append(dispatch_result.scene_future)
+                    tool_responses.append(
+                        types.Part.from_function_response(name=function_call.name, response=dispatch_result.response)
+                    )
+
+                if (
+                    len(dm_text_full.strip()) > text_length_before_request
+                    and _tool_calls_only_finish_visible_turn(function_calls)
+                ):
+                    logger.info(
+                        "engine.action.finish_after_visible_tool_calls tool_names=%s",
+                        [function_call.name for function_call in function_calls],
+                    )
+                    break
+
+                current_input = tool_responses
+                if emitted_tool_call:
+                    message_id += 1
+
+            while pending_image_jobs:
+                image_job = pending_image_jobs.pop(0)
+                try:
+                    image_data = image_job.result()
+                    if image_data:
+                        yield {"type": "image", "image_data": image_data}
+                except Exception as error:
+                    logger.warning("scene.render.finalize_failed", extra={"error": str(error)})
+                    yield {"type": "tool_call", "message": ">> **System**: Scene generation failed."}
+
+            if not dm_text_full and function_call_count == 0:
+                logger.warning("engine.action.empty_response chunks=%s finish_reasons=%s", stream_chunk_count, finish_reasons)
+                recovery_response = model_client.send_message(
+                    chat_session,
+                    "Continue the tabletop-RPG conversation now. The player just said "
+                    f"{player_text!r}. Give a concrete, short Dungeon Master response based on the "
+                    "adventure context. Do not mention this recovery instruction and do not call tools.",
                 )
-                chunk_function_calls = _extract_function_calls(chunk)
-                function_calls.extend(chunk_function_calls)
-                function_call_count += len(chunk_function_calls)
-                yield from _yield_completed_images(pending_image_jobs)
+                recovery_text, _ = _extract_text_and_image(recovery_response)
+                if recovery_text:
+                    dm_text_full = recovery_text
+                    yield {"type": "text_chunk", "text": recovery_text, "message_id": message_id}
+                else:
+                    logger.warning("engine.action.recovery_empty")
 
-            if not function_calls:
-                break
+            yield {"type": "done"}
+        except Exception as error:
+            logger.exception("engine.action.failed", extra={"error": str(error)})
+            yield {"type": "error", "error": "Action processing failed."}
 
-            tool_responses = []
-            emitted_tool_call = False
-            for function_call in function_calls:
-                dispatch_result = tool_dispatcher.dispatch(function_call)
-                for event in dispatch_result.events:
-                    yield event
-                    emitted_tool_call = emitted_tool_call or event["type"] == "tool_call"
-                if dispatch_result.scene_future:
-                    pending_image_jobs.append(dispatch_result.scene_future)
-                tool_responses.append(
-                    types.Part.from_function_response(name=function_call.name, response=dispatch_result.response)
-                )
+    turn_blocks = []
+    dm_blocks_by_id = {}
 
-            if (
-                len(dm_text_full.strip()) > text_length_before_request
-                and _tool_calls_only_finish_visible_turn(function_calls)
-            ):
-                logger.info(
-                    "engine.action.finish_after_visible_tool_calls tool_names=%s",
-                    [function_call.name for function_call in function_calls],
-                )
-                break
+    def _sync_history():
+        blocks = list(turn_blocks)
+        for msg_id in sorted(dm_blocks_by_id.keys()):
+            if dm_blocks_by_id[msg_id]:
+                blocks.append({"type": "message", "role": "dm", "markdown": dm_blocks_by_id[msg_id]})
+        session_state.history = blocks
 
-            current_input = tool_responses
-            if emitted_tool_call:
-                message_id += 1
+    for item in _generate_events():
+        item_type = item.get("type")
+        if item_type == "image":
+            session_state.hero_image_url = item.get("image_data")
+        elif item_type == "tool_call":
+            turn_blocks.append({"type": "system", "markdown": item.get("message", "")})
+            _sync_history()
+        elif item_type == "text_chunk":
+            msg_id = item.get("message_id", 0)
+            dm_blocks_by_id[msg_id] = dm_blocks_by_id.get(msg_id, "") + item.get("text", "")
+            _sync_history()
+        yield item
 
-        while pending_image_jobs:
-            image_job = pending_image_jobs.pop(0)
-            try:
-                image_data = image_job.result()
-                if image_data:
-                    yield {"type": "image", "image_data": image_data}
-            except Exception as error:
-                logger.warning("scene.render.finalize_failed", extra={"error": str(error)})
-                yield {"type": "tool_call", "message": ">> **System**: Scene generation failed."}
-
-        if not dm_text_full and function_call_count == 0:
-            logger.warning("engine.action.empty_response chunks=%s finish_reasons=%s", stream_chunk_count, finish_reasons)
-            recovery_response = model_client.send_message(
-                chat_session,
-                "Continue the tabletop-RPG conversation now. The player just said "
-                f"{player_text!r}. Give a concrete, short Dungeon Master response based on the "
-                "adventure context. Do not mention this recovery instruction and do not call tools.",
-            )
-            recovery_text, _ = _extract_text_and_image(recovery_response)
-            if recovery_text:
-                dm_text_full = recovery_text
-                yield {"type": "text_chunk", "text": recovery_text, "message_id": message_id}
-            else:
-                logger.warning("engine.action.recovery_empty")
-
-        yield {"type": "done"}
-    except Exception as error:
-        logger.exception("engine.action.failed", extra={"error": str(error)})
-        yield {"type": "error", "error": "Action processing failed."}

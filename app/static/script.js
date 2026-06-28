@@ -260,11 +260,39 @@ function setHeroImage(imageData) {
     ScenePage.render(scenePageData);
 }
 
-function initializeScenePage() {
+async function initializeScenePage() {
     const root = document.getElementById('scene-page-root');
     ScenePage.init(root, { onSubmit: () => sendAction() });
     ScenePage.render(scenePageData, { stickToTop: true });
+
+    try {
+        const response = await fetch('/session');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.initialized) {
+                resetScenePage();
+                scenePageData.heroImageUrl = data.hero_image_url || undefined;
+                scenePageData.blocks = data.blocks || [];
+                syncNarrativeFromBlocks();
+
+                const overlay = document.getElementById('upload-overlay');
+                overlay.style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                ScenePage.render(scenePageData, { stickToTop: true });
+                ScenePage.focusInput();
+                return;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch session state:', err);
+    }
+
+    const overlay = document.getElementById('upload-overlay');
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
 }
+
+
 
 // Start Initialization Request to the Backend
 async function initializeEngine() {

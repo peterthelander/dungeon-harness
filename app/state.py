@@ -12,6 +12,8 @@ class SessionState:
     chat_session: Any = None
     latest_pdf: Any = None
     action_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    history: list = field(default_factory=list)
+    hero_image_url: Any = None
 
 
 class SessionStore:
