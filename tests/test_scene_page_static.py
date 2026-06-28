@@ -44,14 +44,8 @@ class ScenePageStaticTests(unittest.TestCase):
 
         self.assertIn("^[A-Za-z][A-Za-z ]+:", script)
         self.assertIn("isActionableBoldLabel(label)", script)
-
-    def test_bold_actions_skip_question_fragments(self):
-        script = read_static_file("script.js")
-
-        self.assertIn("QUESTION_FRAGMENT_PATTERNS", script)
-        self.assertIn("will|would|do|does|did", script)
-        self.assertIn("say or do", script)
-        self.assertIn("pattern.test(label)", script)
+        self.assertNotIn("QUESTION_FRAGMENT_PATTERNS", script)
+        self.assertNotIn("pattern.test(label)", script)
 
     def test_bold_actions_have_inline_button_styles(self):
         style = read_static_file("style.css")
