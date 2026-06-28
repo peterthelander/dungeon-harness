@@ -39,6 +39,10 @@ pytest
 
 Uploaded and remote PDFs are limited to 20 MiB by default. Override `MAX_UPLOAD_BYTES` or `MAX_REMOTE_DOWNLOAD_BYTES` only when the deployment has appropriate resource limits.
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for current project notes on recent UI and session work, persistence foundations, account and session management, and longer-term release readiness.
+
 ## Licensing & Dual-License Notice
 
 This repository is licensed under the **GNU General Public License v3.0 (GPLv3)**. 
