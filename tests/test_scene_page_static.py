@@ -17,6 +17,25 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertNotIn('id="image-canvas-container"', index)
         self.assertNotIn('id="chat-window"', index)
 
+    def test_uninitialized_session_uses_chat_lobby(self):
+        index = read_static_file("index.html")
+        script = read_static_file("script.js")
+
+        self.assertNotIn('class="preset-modules"', index)
+        self.assertIn('id="pdf-upload"', index)
+        self.assertIn("const PRESET_MODULES", script)
+        self.assertIn("function buildModuleLobbyText", script)
+        self.assertIn("appendMessage(buildModuleLobbyText(), 'dm')", script)
+        self.assertIn("document.getElementById('dashboard').style.display = 'flex';", script)
+
+    def test_preset_module_inline_action_loads_url(self):
+        script = read_static_file("script.js")
+
+        self.assertIn("function findPresetModule", script)
+        self.assertIn("loadPresetModuleFromChat(presetModule)", script)
+        self.assertIn("appendMessage(presetModule.label, 'player')", script)
+        self.assertIn("await loadUrl(presetModule.url)", script)
+
     def test_scene_page_renderer_uses_page_data_model(self):
         script = read_static_file("script.js")
 

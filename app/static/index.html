@@ -11,33 +11,11 @@
 </head>
 <body>
 
-    <!-- Upload Initialization Layer -->
-    <div id="upload-overlay" style="display: none;">
-        <div class="upload-container">
-            <h1>Dungeon Harness</h1>
-            <p style="margin-bottom: 20px; color: #aaa;">Choose a pre-selected adventure or upload a PDF module.</p>
-            
-            <div class="preset-modules">
-                <button class="preset-btn" onclick="loadUrl('https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf')">
-                    <strong>The Sky Blind Spire</strong><br>by Michael Prescott
-                </button>
-                <button class="preset-btn" onclick="loadUrl('https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf')">
-                    <strong>Tomb of the Serpent Kings</strong><br>by Skerples
-                </button>
-                <button class="preset-btn" onclick="loadUrl('https://uberty.org/wp-content/uploads/2015/12/herman-melville-moby-dick.pdf')">
-                    <strong>Moby Dick</strong><br>by Herman Melville
-                </button>
-                <button class="preset-btn" onclick="loadUrl('https://www.bramstoker.org/pdf/novels/05dracula.pdf')">
-                    <strong>Dracula</strong><br>by Bram Stoker
-                </button>
-            </div>
-            
-            <hr style="margin: 20px 0; border-color: #333 border-style: solid; border-width: 1px 0 0 0;" />
-            <p style="margin-bottom: 15px; color: #aaa;">Or upload your own:</p>
-            <input type="file" id="pdf-upload" accept="application/pdf" />
-            <button class="primary" id="init-engine-btn" onclick="initializeEngine()">Begin Quest</button>
-            <div id="loading-text">Preparing your adventure...</div>
-        </div>
+    <!-- Hidden initialization controls used by chat actions. -->
+    <div id="upload-overlay" style="display: none;" aria-hidden="true">
+        <input type="file" id="pdf-upload" accept="application/pdf" tabindex="-1" />
+        <button class="primary" id="init-engine-btn" type="button" onclick="initializeEngine()">Begin Quest</button>
+        <div id="loading-text">Preparing your adventure...</div>
     </div>
 
     <!-- Main Game Dashboard -->

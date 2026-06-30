@@ -17,6 +17,29 @@ const scenePageData = {
     blocks: []
 };
 
+const PRESET_MODULES = [
+    { label: 'The Sky Blind Spire', author: 'Michael Prescott', url: 'https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf' },
+    { label: 'Tomb of the Serpent Kings', author: 'Skerples', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' },
+    { label: 'Moby Dick', author: 'Herman Melville', url: 'https://uberty.org/wp-content/uploads/2015/12/herman-melville-moby-dick.pdf' },
+    { label: 'Dracula', author: 'Bram Stoker', url: 'https://www.bramstoker.org/pdf/novels/05dracula.pdf' }
+];
+
+function normalizeActionLabel(label) {
+    return label.trim().toLowerCase();
+}
+
+function findPresetModule(label) {
+    const normalizedLabel = normalizeActionLabel(label);
+    return PRESET_MODULES.find((module) => normalizeActionLabel(module.label) === normalizedLabel);
+}
+
+function buildModuleLobbyText() {
+    const moduleChoices = PRESET_MODULES
+        .map((module) => `**${module.label}** by ${module.author}`)
+        .join('\n');
+    return `Welcome to Dungeon Harness. Choose an adventure module, or bring your own PDF.\n\n${moduleChoices}\n**Upload a PDF**`;
+}
+
 function resetScenePage() {
     scenePageData.title = undefined;
     scenePageData.heroImageUrl = undefined;
@@ -66,16 +89,28 @@ function activateBoldActions(messageElement) {
 }
 
 function handleInlineAction(label) {
-    const normalizedLabel = label.trim().toLowerCase();
+    if (handleDeterministicAction(label)) return;
+    sendAction(label);
+}
+
+function handleDeterministicAction(label) {
+    const normalizedLabel = normalizeActionLabel(label);
     if (normalizedLabel === 'upload a pdf') {
         triggerUploadFromChat();
-        return;
+        return true;
     }
     if (normalizedLabel === 'restart this module') {
         restartCurrentModule();
-        return;
+        return true;
     }
-    sendAction(label);
+
+    const presetModule = findPresetModule(label);
+    if (presetModule) {
+        loadPresetModuleFromChat(presetModule);
+        return true;
+    }
+
+    return false;
 }
 
 const ScenePage = (() => {
@@ -301,9 +336,13 @@ async function initializeScenePage() {
         console.error('Failed to fetch session state:', err);
     }
 
+    resetScenePage();
+    appendMessage(buildModuleLobbyText(), 'dm');
     const overlay = document.getElementById('upload-overlay');
-    overlay.style.display = 'flex';
-    overlay.style.opacity = '1';
+    if (overlay) overlay.style.display = 'none';
+    document.getElementById('dashboard').style.display = 'flex';
+    ScenePage.render(scenePageData, { stickToTop: true });
+    ScenePage.focusInput();
 }
 
 
@@ -322,9 +361,7 @@ async function initializeEngine(options = {}) {
         return false;
     }
 
-    btn.disabled = true;
-    btn.innerText = 'Preparing...';
-    loadText.style.display = 'block';
+    setInitializationBusy(true, 'Preparing...');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -347,12 +384,7 @@ async function initializeEngine(options = {}) {
 }
 
 async function loadUrl(url) {
-    const btn = document.getElementById('init-engine-btn');
-    const loadText = document.getElementById('loading-text');
-
-    btn.disabled = true;
-    btn.innerText = 'Downloading & Preparing...';
-    loadText.style.display = 'block';
+    setInitializationBusy(true, 'Downloading & Preparing...');
 
     try {
         const response = await fetch('/load_url', {
@@ -371,6 +403,23 @@ async function loadUrl(url) {
     }
 }
 
+async function loadPresetModuleFromChat(presetModule) {
+    if (actionInProgress) return;
+
+    actionInProgress = true;
+    appendMessage(presetModule.label, 'player');
+    deactivateInlineActions();
+    ScenePage.setBusy(true, 'Preparing your adventure');
+
+    try {
+        await loadUrl(presetModule.url);
+    } finally {
+        actionInProgress = false;
+        ScenePage.setBusy(false, 'Send action');
+        ScenePage.focusInput();
+    }
+}
+
 async function handleInitializationResponse(response) {
     const data = await response.json();
 
@@ -385,25 +434,30 @@ async function handleInitializationResponse(response) {
         }
 
         const overlay = document.getElementById('upload-overlay');
-        overlay.style.opacity = '0';
-        setTimeout(() => {
-            overlay.style.display = 'none';
-            document.getElementById('dashboard').style.display = 'flex';
-            ScenePage.render(scenePageData, { stickToTop: true });
-            ScenePage.focusInput();
-        }, 500);
+        if (overlay) overlay.style.display = 'none';
+        document.getElementById('dashboard').style.display = 'flex';
+        ScenePage.render(scenePageData, { stickToTop: true });
+        ScenePage.focusInput();
     } else {
         alert('Initialization error: ' + data.error);
         resetInitUI();
     }
 }
 
-function resetInitUI() {
+function setInitializationBusy(isBusy, label) {
     const btn = document.getElementById('init-engine-btn');
     const loadText = document.getElementById('loading-text');
-    btn.disabled = false;
-    btn.innerText = 'Begin Quest';
-    loadText.style.display = 'none';
+    if (btn) {
+        btn.disabled = isBusy;
+        btn.innerText = isBusy ? label : 'Begin Quest';
+    }
+    if (loadText) {
+        loadText.style.display = isBusy ? 'block' : 'none';
+    }
+}
+
+function resetInitUI() {
+    setInitializationBusy(false);
 }
 
 function triggerUploadFromChat() {
@@ -483,6 +537,10 @@ async function sendAction(suggestedText = null) {
     const text = (suggestedText || ScenePage.getInputValue()).trim();
 
     if (!text || actionInProgress) return;
+    if (handleDeterministicAction(text)) {
+        ScenePage.clearInput();
+        return;
+    }
     actionInProgress = true;
 
     appendMessage(text, 'player');
