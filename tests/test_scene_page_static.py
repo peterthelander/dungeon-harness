@@ -34,6 +34,7 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("function findPresetModule", script)
         self.assertIn("loadPresetModuleFromChat(presetModule)", script)
         self.assertIn("appendMessage(presetModule.label, 'player')", script)
+        self.assertIn("Preparing ${presetModule.label}", script)
         self.assertIn("await loadUrl(presetModule.url)", script)
 
     def test_scene_page_renderer_uses_page_data_model(self):
@@ -74,6 +75,7 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("function triggerUploadFromChat", script)
         self.assertIn("fileInput.click()", script)
         self.assertIn("initializeEngine({ fromChat: true })", script)
+        self.assertIn("Preparing your uploaded PDF", script)
         self.assertIn("setupPdfUploadInput();", script)
 
     def test_restart_inline_action_calls_restart_endpoint(self):

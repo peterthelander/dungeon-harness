@@ -408,6 +408,7 @@ async function loadPresetModuleFromChat(presetModule) {
 
     actionInProgress = true;
     appendMessage(presetModule.label, 'player');
+    appendSystemMessage(`Preparing ${presetModule.label}. This can take a minute while the module is loaded.`);
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -481,6 +482,7 @@ async function handlePdfUploadSelection() {
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
+    appendSystemMessage('Preparing your uploaded PDF. This can take a minute while the module is uploaded and read.');
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
