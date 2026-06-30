@@ -342,6 +342,37 @@ button.primary:disabled {
 .message.system + .message.system {
     margin-top: -6px;
 }
+.message--status {
+    color: #f4d6a3;
+    border-color: #6a4a24;
+    background: linear-gradient(90deg, #2c2517 0%, #352814 52%, #2c2517 100%);
+    background-size: 220% 100%;
+    animation: status-glow 2.4s ease-in-out infinite;
+}
+
+.message--status::before {
+    content: "";
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 0.55em;
+    border-radius: 50%;
+    background: #f0bd78;
+    box-shadow: 0 0 12px rgba(240, 189, 120, 0.75);
+    vertical-align: 0.02em;
+    animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes status-glow {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes status-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.78); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
 
 .message p {
     margin-bottom: 0.75em;
@@ -465,8 +496,14 @@ button.primary:disabled {
 
 #send-action-btn:disabled {
     background-color: #444;
-    color: #777;
+    color: #ddd;
     cursor: wait;
+    animation: send-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes send-pulse {
+    0%, 100% { transform: translateY(0); opacity: 0.72; }
+    50% { transform: translateY(-1px); opacity: 1; }
 }
 
 /* Narrow and portrait screens: stack image above narrative within one page. */

@@ -35,6 +35,7 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("loadPresetModuleFromChat(presetModule)", script)
         self.assertIn("appendMessage(presetModule.label, 'player')", script)
         self.assertIn("Preparing ${presetModule.label}", script)
+        self.assertIn("appendStatusMessage(`Preparing ${presetModule.label}", script)
         self.assertIn("await loadUrl(presetModule.url)", script)
 
     def test_scene_page_renderer_uses_page_data_model(self):
@@ -63,6 +64,8 @@ class ScenePageStaticTests(unittest.TestCase):
         script = read_static_file("script.js")
 
         self.assertIn("^[A-Za-z][A-Za-z ]+:", script)
+        self.assertIn("label.split(/\\s+/).length > 8", script)
+        self.assertIn("nonActionLabels", script)
         self.assertIn("isActionableBoldLabel(label)", script)
         self.assertNotIn("QUESTION_FRAGMENT_PATTERNS", script)
         self.assertNotIn("pattern.test(label)", script)
@@ -76,7 +79,20 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("fileInput.click()", script)
         self.assertIn("initializeEngine({ fromChat: true })", script)
         self.assertIn("Preparing your uploaded PDF", script)
+        self.assertIn("appendStatusMessage('Preparing your uploaded PDF", script)
         self.assertIn("setupPdfUploadInput();", script)
+
+    def test_action_waiting_and_retry_feedback_are_player_friendly(self):
+        script = read_static_file("script.js")
+        style = read_static_file("style.css")
+
+        self.assertIn("const WAITING_MESSAGES", script)
+        self.assertIn("appendStatusMessage(randomWaitingMessage())", script)
+        self.assertIn("buildRetryMessage", script)
+        self.assertIn("normalizedLabel === 'try again'", script)
+        self.assertIn("lastFailedActionText = text", script)
+        self.assertNotIn("CRITICAL: Failed to communicate", script)
+        self.assertIn("send-pulse", style)
 
     def test_restart_inline_action_calls_restart_endpoint(self):
         script = read_static_file("script.js")
@@ -93,6 +109,8 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("font-weight: 700", style)
         self.assertIn(".inline-action--inactive", style)
         self.assertIn(".message.system + .message.system", style)
+        self.assertIn(".message--status", style)
+        self.assertIn("status-pulse", style)
         self.assertIn("align-self: stretch", style)
         self.assertIn("margin-bottom: 0.35em", style)
 
