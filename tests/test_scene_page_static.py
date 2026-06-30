@@ -47,6 +47,24 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertNotIn("QUESTION_FRAGMENT_PATTERNS", script)
         self.assertNotIn("pattern.test(label)", script)
 
+    def test_upload_pdf_inline_action_uses_file_picker(self):
+        script = read_static_file("script.js")
+
+        self.assertIn("function handleInlineAction", script)
+        self.assertIn("normalizedLabel === 'upload a pdf'", script)
+        self.assertIn("function triggerUploadFromChat", script)
+        self.assertIn("fileInput.click()", script)
+        self.assertIn("initializeEngine({ fromChat: true })", script)
+        self.assertIn("setupPdfUploadInput();", script)
+
+    def test_restart_inline_action_calls_restart_endpoint(self):
+        script = read_static_file("script.js")
+
+        self.assertIn("normalizedLabel === 'restart this module'", script)
+        self.assertIn("function restartCurrentModule", script)
+        self.assertIn("fetch('/restart', { method: 'POST' })", script)
+        self.assertIn("appendMessage('Restart this module', 'player')", script)
+
     def test_bold_actions_have_inline_button_styles(self):
         style = read_static_file("style.css")
 

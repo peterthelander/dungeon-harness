@@ -1,5 +1,6 @@
 let actionInProgress = false;
 let nextSceneBlockId = 1;
+let uploadRequestedFromChat = false;
 
 /**
  * @typedef {Object} ScenePageData
@@ -58,10 +59,23 @@ function activateBoldActions(messageElement) {
         button.textContent = label;
         button.setAttribute('aria-label', `Choose ${label}`);
         button.addEventListener('click', () => {
-            if (!actionInProgress) sendAction(label);
+            if (!actionInProgress) handleInlineAction(label);
         });
         strong.replaceWith(button);
     });
+}
+
+function handleInlineAction(label) {
+    const normalizedLabel = label.trim().toLowerCase();
+    if (normalizedLabel === 'upload a pdf') {
+        triggerUploadFromChat();
+        return;
+    }
+    if (normalizedLabel === 'restart this module') {
+        restartCurrentModule();
+        return;
+    }
+    sendAction(label);
 }
 
 const ScenePage = (() => {
@@ -277,7 +291,7 @@ async function initializeScenePage() {
 
                 const overlay = document.getElementById('upload-overlay');
                 overlay.style.display = 'none';
-                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('dashboard').style.display = 'flex';
                 ScenePage.render(scenePageData, { stickToTop: true });
                 ScenePage.focusInput();
                 return;
@@ -295,15 +309,17 @@ async function initializeScenePage() {
 
 
 // Start Initialization Request to the Backend
-async function initializeEngine() {
+async function initializeEngine(options = {}) {
     const fileInput = document.getElementById('pdf-upload');
     const file = fileInput.files[0];
     const btn = document.getElementById('init-engine-btn');
     const loadText = document.getElementById('loading-text');
 
     if (!file) {
-        alert('Please select a PDF module first.');
-        return;
+        if (!options.fromChat) {
+            alert('Please select a PDF module first.');
+        }
+        return false;
     }
 
     btn.disabled = true;
@@ -319,11 +335,14 @@ async function initializeEngine() {
             body: formData
         });
 
+        const ok = response.ok;
         await handleInitializationResponse(response);
+        return ok;
     } catch (err) {
         console.error(err);
         alert('Could not connect to the engine.');
         resetInitUI();
+        return false;
     }
 }
 
@@ -342,7 +361,9 @@ async function loadUrl(url) {
             body: JSON.stringify({ url: url })
         });
 
+        const ok = response.ok;
         await handleInitializationResponse(response);
+        return ok;
     } catch (err) {
         console.error(err);
         alert('Could not connect to the engine.');
@@ -367,7 +388,7 @@ async function handleInitializationResponse(response) {
         overlay.style.opacity = '0';
         setTimeout(() => {
             overlay.style.display = 'none';
-            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'flex';
             ScenePage.render(scenePageData, { stickToTop: true });
             ScenePage.focusInput();
         }, 500);
@@ -383,6 +404,73 @@ function resetInitUI() {
     btn.disabled = false;
     btn.innerText = 'Begin Quest';
     loadText.style.display = 'none';
+}
+
+function triggerUploadFromChat() {
+    const fileInput = document.getElementById('pdf-upload');
+    if (!fileInput) {
+        appendSystemMessage('Upload is unavailable right now.');
+        return;
+    }
+    uploadRequestedFromChat = true;
+    fileInput.value = '';
+    fileInput.click();
+}
+
+async function handlePdfUploadSelection() {
+    if (!uploadRequestedFromChat) return;
+    uploadRequestedFromChat = false;
+
+    const fileInput = document.getElementById('pdf-upload');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+    if (actionInProgress) return;
+
+    actionInProgress = true;
+    appendMessage('Upload a PDF', 'player');
+    deactivateInlineActions();
+    ScenePage.setBusy(true, 'Preparing your adventure');
+
+    try {
+        await initializeEngine({ fromChat: true });
+    } finally {
+        actionInProgress = false;
+        ScenePage.setBusy(false, 'Send action');
+        ScenePage.focusInput();
+    }
+}
+
+function setupPdfUploadInput() {
+    const fileInput = document.getElementById('pdf-upload');
+    if (fileInput) {
+        fileInput.addEventListener('change', handlePdfUploadSelection);
+    }
+}
+
+async function restartCurrentModule() {
+    if (actionInProgress) return;
+
+    actionInProgress = true;
+    appendMessage('Restart this module', 'player');
+    deactivateInlineActions();
+    ScenePage.setBusy(true, 'Restarting adventure');
+
+    try {
+        const response = await fetch('/restart', { method: 'POST' });
+        if (response.ok) {
+            await handleInitializationResponse(response);
+            return;
+        }
+
+        const data = await response.json();
+        appendSystemMessage(data.error || 'Restart is unavailable right now.');
+    } catch (err) {
+        console.error(err);
+        appendSystemMessage('Could not restart the adventure.');
+    } finally {
+        actionInProgress = false;
+        ScenePage.setBusy(false, 'Send action');
+        ScenePage.focusInput();
+    }
 }
 
 function handleKeyPress(e) {
@@ -496,4 +584,32 @@ async function sendAction(suggestedText = null) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initializeScenePage);
+function toggleAppMenu(event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById('app-menu-dropdown');
+    if (!dropdown) return;
+    const isVisible = dropdown.style.display === 'block';
+    dropdown.style.display = isVisible ? 'none' : 'block';
+}
+
+function closeAppMenu() {
+    const dropdown = document.getElementById('app-menu-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function submitPromptMenuItem(text) {
+    closeAppMenu();
+    sendAction(text);
+}
+
+document.addEventListener('click', (event) => {
+    const container = document.querySelector('.app-header__menu-container');
+    if (container && !container.contains(event.target)) {
+        closeAppMenu();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupPdfUploadInput();
+    initializeScenePage();
+});

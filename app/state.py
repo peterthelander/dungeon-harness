@@ -14,6 +14,19 @@ class SessionState:
     action_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     history: list = field(default_factory=list)
     hero_image_url: Any = None
+    module_source_type: str | None = None
+    module_source_url: str | None = None
+    module_source_name: str | None = None
+
+    def reset(self):
+        with self.action_lock:
+            self.chat_session = None
+            self.latest_pdf = None
+            self.history.clear()
+            self.hero_image_url = None
+            self.module_source_type = None
+            self.module_source_url = None
+            self.module_source_name = None
 
 
 class SessionStore:

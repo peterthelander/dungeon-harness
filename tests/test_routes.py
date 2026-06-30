@@ -49,13 +49,32 @@ def load_main_module(process_action_impl=None, session_state_factory=None):
     fake_werkzeug_utils.secure_filename = lambda name: name
 
     fake_engine = types.ModuleType("app.engine")
-    fake_engine.upload_pdf_and_init = lambda *args, **kwargs: ("Intro", None, [])
+    fake_engine.upload_pdf_and_init = lambda *args, **kwargs: ("Intro", None)
     fake_engine.process_action = process_action_impl or (lambda *args, **kwargs: iter([{"type": "done"}]))
 
-    default_factory = lambda _session_id: SimpleNamespace(
-        chat_session=object(), action_lock=threading.Lock(), history=[{"type": "message", "role": "dm", "markdown": "Welcome"}], hero_image_url="http://img"
-    )
+    def create_mock_state(_session_id):
+        state = SimpleNamespace(
+            chat_session=object(),
+            action_lock=threading.Lock(),
+            history=[{"type": "message", "role": "dm", "markdown": "Welcome"}],
+            hero_image_url="http://img",
+            module_source_type="url",
+            module_source_url="https://example.com/module.pdf",
+            module_source_name="module.pdf",
+        )
+        def mock_reset():
+            state.chat_session = None
+            state.history = []
+            state.hero_image_url = None
+            state.module_source_type = None
+            state.module_source_url = None
+            state.module_source_name = None
+        state.reset = mock_reset
+        return state
+
+    default_factory = create_mock_state
     factory = session_state_factory or default_factory
+
     fake_state = types.ModuleType("app.state")
     fake_state.SessionStore = lambda *_args, **_kwargs: SimpleNamespace(get_or_create=factory)
 
@@ -168,10 +187,63 @@ class RoutesTests(unittest.TestCase):
         response = main.get_session()
         self.assertTrue(response["initialized"])
         self.assertEqual(response["hero_image_url"], "http://img")
+        self.assertEqual(response["module_source_type"], "url")
+        self.assertEqual(response["module_source_name"], "module.pdf")
         self.assertEqual(len(response["blocks"]), 1)
+
+    def test_reset_session_endpoint(self):
+        main, fake_flask = load_main_module()
+        fake_flask.request.headers = {}
+
+        response = main.reset_session()
+        self.assertEqual(response["status"], "Session reset successfully")
+
+    def test_restart_session_reloads_url_source(self):
+        state = SimpleNamespace(
+            chat_session=object(),
+            action_lock=threading.Lock(),
+            history=[],
+            hero_image_url=None,
+            module_source_type="url",
+            module_source_url="https://example.com/module.pdf",
+            module_source_name="module.pdf",
+            reset=lambda: None,
+        )
+        main, fake_flask = load_main_module(session_state_factory=lambda _sid: state)
+        fake_flask.request.headers = {}
+
+        with (
+            patch.object(main, "_validate_remote_url", return_value=("https://example.com/module.pdf", None)),
+            patch.object(main, "_download_remote_file"),
+            patch.object(main, "_looks_like_pdf", return_value=True),
+        ):
+            response = main.restart_session()
+
+        self.assertEqual(response["status"], "Engine Initialized Successfully")
+        self.assertEqual(response["dm_text"], "Intro")
+        self.assertEqual(state.module_source_type, "url")
+        self.assertEqual(state.module_source_url, "https://example.com/module.pdf")
+
+    def test_restart_session_rejects_upload_source(self):
+        state = SimpleNamespace(
+            chat_session=object(),
+            action_lock=threading.Lock(),
+            history=[],
+            hero_image_url=None,
+            module_source_type="upload",
+            module_source_url=None,
+            module_source_name="mine.pdf",
+            reset=lambda: None,
+        )
+        main, fake_flask = load_main_module(session_state_factory=lambda _sid: state)
+        fake_flask.request.headers = {}
+
+        response = main.restart_session()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response["code"], "restart_unavailable")
+        self.assertIn("Upload a PDF", response["error"])
 
 
 if __name__ == "__main__":
     unittest.main()
-
-

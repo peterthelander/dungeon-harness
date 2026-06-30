@@ -27,6 +27,11 @@ class PromptTests(unittest.TestCase):
         self.assertIn("character statistics or numbers", instruction)
         self.assertIn("purely descriptive place names", instruction)
         self.assertIn("hidden information, puzzle solutions", instruction)
+        self.assertIn("Restart this module", instruction)
+        self.assertIn("Choose another adventure", instruction)
+        self.assertIn("Upload a PDF", instruction)
+        self.assertIn("do not include cancel", instruction)
+        self.assertNotIn("or cancel;", instruction)
         self.assertNotIn("suggest_actions", instruction)
 
 

@@ -15,6 +15,9 @@ class SessionStateTests(unittest.TestCase):
         self.assertIsNot(session_a, session_b)
         self.assertIsNone(session_a.chat_session)
         self.assertIsNone(session_a.latest_pdf)
+        self.assertIsNone(session_a.module_source_type)
+        self.assertIsNone(session_a.module_source_url)
+        self.assertIsNone(session_a.module_source_name)
         self.assertTrue(session_a.action_lock.acquire(blocking=False))
         session_a.action_lock.release()
 
@@ -26,6 +29,27 @@ class SessionStateTests(unittest.TestCase):
 
         self.assertIs(fetched, session)
         self.assertEqual(fetched.chat_session, "persisted-chat")
+
+    def test_session_state_reset(self):
+        session = self.store.get_or_create("session-reset")
+        session.chat_session = "active-chat"
+        session.latest_pdf = "active.pdf"
+        session.history.append({"type": "message"})
+        session.hero_image_url = "http://hero"
+        session.module_source_type = "url"
+        session.module_source_url = "https://example.com/module.pdf"
+        session.module_source_name = "module.pdf"
+
+        session.reset()
+
+        self.assertIsNone(session.chat_session)
+        self.assertIsNone(session.latest_pdf)
+        self.assertEqual(len(session.history), 0)
+        self.assertIsNone(session.hero_image_url)
+        self.assertIsNone(session.module_source_type)
+        self.assertIsNone(session.module_source_url)
+        self.assertIsNone(session.module_source_name)
+
 
     def test_store_evicts_oldest_when_max_sessions_exceeded(self):
         self.store.max_items = 1

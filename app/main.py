@@ -161,6 +161,9 @@ def upload():
             return _json_error("Uploaded file is not a valid PDF.", 400, request_id=request_id)
         _log_activity("upload.start", module=safe_name)
         dm_text, image_data = upload_pdf_and_init(temp_path, file.filename, session_state)
+        session_state.module_source_type = "upload"
+        session_state.module_source_url = None
+        session_state.module_source_name = file.filename
         return _json_ok(
             {
                 "status": "Engine Initialized Successfully",
@@ -182,17 +185,8 @@ def upload():
             os.remove(temp_path)
 
 
-@app.route("/load_url", methods=["POST"])
-def load_url():
-    request_id = _request_id()
-    session_state = _get_session_state()
-
-    data = request.get_json(silent=True) or {}
-    url = data.get("url")
-    if not isinstance(url, str) or not url:
-        return _json_error("No url provided", 400, request_id=request_id)
-
-    validated_url, validation_error = _validate_remote_url(url)
+def _load_remote_module_response(raw_url: str, session_state, request_id: str, event_name: str):
+    validated_url, validation_error = _validate_remote_url(raw_url)
     if validation_error:
         return _json_error(validation_error, 400, request_id=request_id)
 
@@ -208,11 +202,14 @@ def load_url():
         temp_path = temp_file.name
 
     try:
-        _log_activity("load_url.start", url=validated_url, module=filename)
+        _log_activity(event_name, url=validated_url, module=filename)
         _download_remote_file(validated_url, temp_path)
         if not _looks_like_pdf(temp_path):
             return _json_error("Remote file is not a valid PDF.", 400, request_id=request_id)
         dm_text, image_data = upload_pdf_and_init(temp_path, filename, session_state)
+        session_state.module_source_type = "url"
+        session_state.module_source_url = validated_url
+        session_state.module_source_name = filename
         return _json_ok(
             {
                 "status": "Engine Initialized Successfully",
@@ -221,8 +218,8 @@ def load_url():
             },
             request_id,
         )
-    except ValueError as e:
-        logger.warning("load_url.validation_failed", extra={"request_id": request_id, "error": str(e)})
+    except ValueError:
+        logger.warning("load_url.validation_failed", extra={"request_id": request_id})
         return _json_error(
             "Remote file failed validation.",
             400,
@@ -240,6 +237,37 @@ def load_url():
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+@app.route("/load_url", methods=["POST"])
+def load_url():
+    request_id = _request_id()
+    session_state = _get_session_state()
+
+    data = request.get_json(silent=True) or {}
+    url = data.get("url")
+    if not isinstance(url, str) or not url:
+        return _json_error("No url provided", 400, request_id=request_id)
+
+    return _load_remote_module_response(url, session_state, request_id, "load_url.start")
+
+
+@app.route("/restart", methods=["POST"])
+def restart_session():
+    request_id = _request_id()
+    session_state = _get_session_state()
+
+    module_source_type = getattr(session_state, "module_source_type", None)
+    module_source_url = getattr(session_state, "module_source_url", None)
+    if module_source_type != "url" or not module_source_url:
+        return _json_error(
+            "This adventure cannot be restarted automatically yet. Use Upload a PDF to start it again.",
+            400,
+            code="restart_unavailable",
+            request_id=request_id,
+        )
+
+    return _load_remote_module_response(module_source_url, session_state, request_id, "session.restart")
 
 
 @app.route("/action", methods=["POST"])
@@ -294,13 +322,23 @@ def get_session():
             "initialized": initialized,
             "blocks": session_state.history if initialized else [],
             "hero_image_url": session_state.hero_image_url if initialized else None,
+            "module_source_type": session_state.module_source_type if initialized else None,
+            "module_source_name": session_state.module_source_name if initialized else None,
         },
         request_id,
     )
 
 
+@app.route("/reset", methods=["POST"])
+def reset_session():
+    request_id = _request_id()
+    session_state = _get_session_state()
+    session_state.reset()
+    _log_activity("session.reset")
+    return _json_ok({"status": "Session reset successfully"}, request_id)
+
+
 @app.errorhandler(413)
 def request_entity_too_large(_error):
+
     return _json_error("Upload is too large.", 413, code="upload_too_large")
-
-

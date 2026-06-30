@@ -42,6 +42,25 @@
 
     <!-- Main Game Dashboard -->
     <div id="dashboard">
+        <header class="app-header">
+            <div class="app-header__title">
+                <span class="app-header__logo">DH</span>
+                <span class="app-header__text">Dungeon Harness</span>
+            </div>
+            <div class="app-header__menu-container">
+                <button type="button" id="menu-toggle-btn" class="menu-toggle-btn" aria-label="Game Menu" title="Game Menu" onclick="toggleAppMenu(event)">
+                    &#8942;
+                </button>
+                <div id="app-menu-dropdown" class="app-menu-dropdown" style="display: none;">
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('New adventure')">New adventure</button>
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('Character')">Character</button>
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('Inventory')">Inventory</button>
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('Journal')">Journal</button>
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('Recap')">Recap</button>
+                    <button type="button" class="app-menu-item" onclick="submitPromptMenuItem('What can I do?')">What can I do?</button>
+                </div>
+            </div>
+        </header>
         <main id="scene-page-root" aria-label="Current scene"></main>
     </div>
 

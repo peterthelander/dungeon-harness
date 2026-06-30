@@ -127,18 +127,116 @@ button.primary:disabled {
    ---------------------------------------------------- */
 #dashboard {
     display: none;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     min-height: 100dvh;
     background-color: var(--bg-color);
 }
 
+/* App Header & Meta Menu */
+.app-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px clamp(14px, 2vw, 28px);
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    z-index: 50;
+    flex: 0 0 auto;
+}
+
+.app-header__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text-color);
+    letter-spacing: 1px;
+}
+
+.app-header__logo {
+    font-size: 1.25rem;
+}
+
+.app-header__menu-container {
+    position: relative;
+}
+
+.menu-toggle-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: var(--text-color);
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.menu-toggle-btn:hover,
+.menu-toggle-btn:focus-visible {
+    background-color: #2a2a2a;
+    border-color: var(--accent);
+    outline: none;
+}
+
+.app-menu-dropdown {
+    position: absolute;
+    right: 0;
+    top: 46px;
+    background-color: #242424;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    min-width: 220px;
+    padding: 6px;
+    z-index: 100;
+}
+
+.app-menu-item {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+}
+
+.app-menu-item:hover,
+.app-menu-item:focus-visible {
+    background-color: #333;
+    color: #fff;
+    outline: none;
+}
+
+.app-menu-item .menu-icon {
+    font-size: 1.1rem;
+}
+
 .scene-page-scroll {
     width: 100%;
-    height: 100%;
+    flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
 }
+
 
 .scene-page {
     min-height: 100%;
