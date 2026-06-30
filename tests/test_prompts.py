@@ -40,5 +40,20 @@ class PromptTests(unittest.TestCase):
         self.assertNotIn("suggest_actions", instruction)
 
 
+    def test_system_prompt_guides_first_time_character_creation(self):
+        instruction = build_system_instruction()
+
+        self.assertIn("Quick hero", instruction)
+        self.assertIn("Choose an archetype", instruction)
+        self.assertIn("Describe your idea", instruction)
+        self.assertIn("beginner-friendly concept", instruction)
+        self.assertIn("signature item", instruction)
+        self.assertIn("kid-readable options", instruction)
+        self.assertIn("Do not overwhelm new players", instruction)
+        self.assertIn("confirm or revise the hero", instruction)
+        self.assertIn("transition immediately into one sensory starting scene", instruction)
+        self.assertIn("2 or 3 natural first actions", instruction)
+
+
 if __name__ == "__main__":
     unittest.main()
