@@ -33,6 +33,9 @@ class PromptTests(unittest.TestCase):
         self.assertIn("The Sky Blind Spire", instruction)
         self.assertIn("Tomb of the Serpent Kings", instruction)
         self.assertIn("do not include cancel", instruction)
+        self.assertIn("should not automatically agree", instruction)
+        self.assertIn("asks for proof", instruction)
+        self.assertIn("age-appropriate", instruction)
         self.assertNotIn("or cancel;", instruction)
         self.assertNotIn("suggest_actions", instruction)
 

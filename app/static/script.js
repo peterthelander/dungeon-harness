@@ -1,6 +1,7 @@
 let actionInProgress = false;
 let nextSceneBlockId = 1;
 let uploadRequestedFromChat = false;
+let lastFailedActionText = null;
 
 /**
  * @typedef {Object} ScenePageData
@@ -22,6 +23,13 @@ const PRESET_MODULES = [
     { label: 'Tomb of the Serpent Kings', author: 'Skerples', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' },
     { label: 'Moby Dick', author: 'Herman Melville', url: 'https://uberty.org/wp-content/uploads/2015/12/herman-melville-moby-dick.pdf' },
     { label: 'Dracula', author: 'Bram Stoker', url: 'https://www.bramstoker.org/pdf/novels/05dracula.pdf' }
+];
+
+const WAITING_MESSAGES = [
+    'The Dungeon Master studies the map...',
+    'Dice clatter somewhere behind the screen...',
+    'Torchlight gathers around the next moment...',
+    'The scene is taking shape...'
 ];
 
 function normalizeActionLabel(label) {
@@ -65,8 +73,20 @@ function deactivateInlineActions() {
 
 function isActionableBoldLabel(label) {
     if (!label || label.length > 100) return false;
+    if (/[\r\n]/.test(label)) return false;
+    if (/[;,]/.test(label)) return false;
+    if (/[.!]$/.test(label)) return false;
+    if (label.split(/\s+/).length > 8) return false;
     if (/^[A-Za-z][A-Za-z ]+:$/.test(label)) return false;
     if (/^[A-Za-z][A-Za-z ]+:\s*[-+]?\d+$/.test(label)) return false;
+    if (/^(how|why)\b/i.test(label)) return false;
+
+    const nonActionLabels = new Set([
+        'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma',
+        'armor class', 'hit points', 'hp', 'level', 'gold', 'experience'
+    ]);
+    if (nonActionLabels.has(label.toLowerCase())) return false;
+
     return true;
 }
 
@@ -95,6 +115,10 @@ function handleInlineAction(label) {
 
 function handleDeterministicAction(label) {
     const normalizedLabel = normalizeActionLabel(label);
+    if (normalizedLabel === 'try again' && lastFailedActionText) {
+        sendAction(lastFailedActionText);
+        return true;
+    }
     if (normalizedLabel === 'upload a pdf') {
         triggerUploadFromChat();
         return true;
@@ -233,6 +257,9 @@ const ScenePage = (() => {
     function renderSystemBlock(block) {
         const aside = document.createElement('aside');
         aside.className = 'message system';
+        if (block.variant) {
+            aside.classList.add(`message--${block.variant}`);
+        }
         aside.dataset.sceneBlockId = block.id;
         aside.innerHTML = DOMPurify.sanitize(marked.parse(block.markdown || ''));
         return aside;
@@ -302,6 +329,19 @@ function appendMessage(text, role) {
 
 function appendSystemMessage(text) {
     return addSceneBlock('system', { markdown: text });
+}
+
+function appendStatusMessage(text) {
+    return addSceneBlock('system', { markdown: text, variant: 'status' });
+}
+
+function randomWaitingMessage() {
+    return WAITING_MESSAGES[Math.floor(Math.random() * WAITING_MESSAGES.length)];
+}
+
+function buildRetryMessage(reason) {
+    const detail = reason ? ` ${reason}` : '';
+    return `The magic sputtered for a moment.${detail} Your last action is safe to try again.` + '\n\n**Try again**';
 }
 
 function setHeroImage(imageData) {
@@ -408,7 +448,7 @@ async function loadPresetModuleFromChat(presetModule) {
 
     actionInProgress = true;
     appendMessage(presetModule.label, 'player');
-    appendSystemMessage(`Preparing ${presetModule.label}. This can take a minute while the module is loaded.`);
+    appendStatusMessage(`Preparing ${presetModule.label}. This can take a minute while the module is loaded.`);
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -482,7 +522,7 @@ async function handlePdfUploadSelection() {
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
-    appendSystemMessage('Preparing your uploaded PDF. This can take a minute while the module is uploaded and read.');
+    appendStatusMessage('Preparing your uploaded PDF. This can take a minute while the module is uploaded and read.');
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -549,6 +589,7 @@ async function sendAction(suggestedText = null) {
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
+    const pendingStatusBlock = appendStatusMessage(randomWaitingMessage());
     const dmMessages = new Map();
     const dmText = new Map();
     let freshSceneStarted = false;
@@ -587,7 +628,8 @@ async function sendAction(suggestedText = null) {
 
         if (!response.ok) {
             const data = await response.json();
-            updateSceneBlock(msgBlock, { markdown: 'ERROR: ' + data.error });
+            lastFailedActionText = text;
+            updateSceneBlock(msgBlock, { markdown: buildRetryMessage(data.error) });
         } else {
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
@@ -617,14 +659,18 @@ async function sendAction(suggestedText = null) {
                         appendSystemMessage(data.message);
                     } else if (data.type === 'status') {
                         ScenePage.setBusy(true, data.message);
+                        if (!freshSceneStarted) {
+                            updateSceneBlock(pendingStatusBlock, { markdown: data.message });
+                        }
                     } else if (data.type === 'image') {
                         startFreshScene();
                         setHeroImage(data.image_data);
                     } else if (data.type === 'error') {
+                        lastFailedActionText = text;
                         startFreshScene();
                         msgBlock = getDmMessage(0);
                         updateSceneBlock(msgBlock, {
-                            markdown: `${msgBlock.markdown || ''}\n\nERROR: ${data.error}`
+                            markdown: `${msgBlock.markdown || ''}\n\n${buildRetryMessage(data.error)}`
                         });
                     } else if (data.type === 'done') {
                         break;
@@ -634,9 +680,10 @@ async function sendAction(suggestedText = null) {
         }
     } catch (err) {
         console.error(err);
+        lastFailedActionText = text;
         startFreshScene();
         msgBlock = getDmMessage(0);
-        updateSceneBlock(msgBlock, { markdown: 'CRITICAL: Failed to communicate with engine backend.' });
+        updateSceneBlock(msgBlock, { markdown: buildRetryMessage('The engine could not be reached.') });
     } finally {
         ScenePage.setBusy(false, 'Send action');
         actionInProgress = false;
