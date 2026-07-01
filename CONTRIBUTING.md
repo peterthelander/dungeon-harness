@@ -1,11 +1,14 @@
 # Contributing to Dungeon Harness
 
 ## Architecture Boundaries
-- `/app/main.py` owns HTTP routes, request validation, and response shaping.
-- `/app/engine.py` owns gameplay orchestration and tool-call execution.
+- `/app/main.py` owns HTTP routes, request validation, response shaping, session lookup, and action locking.
+- `/app/engine.py` owns gameplay orchestration, streaming events, model tool calls, and recovery from empty model streams.
 - `/app/model_client.py` owns Gemini API interaction details.
-- `/app/prompts.py` owns reusable prompt templates.
+- `/app/module_loader.py` owns upload and remote PDF validation/fetching.
+- `/app/prompts.py` owns reusable prompt templates and onboarding/gameplay behavior guidance.
+- `/app/scenes.py` and `/app/tool_dispatch.py` own scene rendering and model tool dispatch boundaries.
 - `/app/state.py` owns bounded, expiring, thread-safe session storage.
+- `/app/static/script.js` owns the visible scene state, Markdown rendering, inline actions, busy/retry UI, and streamed frontend updates.
 
 ## Runtime and Deployment Conventions
 - Set `GEMINI_API_KEY` before running.

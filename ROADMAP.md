@@ -30,13 +30,14 @@ The current architecture is still lightweight and text-native. Flask routes hand
 
 Current player-facing capabilities include:
 
-- Adventure PDF initialization.
-- Character creation and customization with illustrated portraits.
+- Adventure PDF initialization from local uploads and curated remote module links.
+- First-time character creation with quick hero, archetype, and free-form concept paths, followed by confirmation or revision.
+- Character customization with illustrated portraits.
 - Free-form player actions, questions, and dialogue.
-- Contextual inline links embedded in narrative text.
+- Contextual inline links embedded in narrative text, with client-side filtering to avoid accidental stat labels or decorative emphasis.
 - AI-generated scene illustrations.
 - Responsive scene-page layout with a persistent input footer.
-- Streamed responses and visible busy states.
+- Streamed responses, visible busy states, and retry affordances for transient failures.
 
 ## Recent Progress
 
@@ -46,6 +47,7 @@ Current player-facing capabilities include:
 - Character presentation: character creation now has a stronger visual loop through generated portraits.
 - Session isolation: server state is keyed by a browser session cookie and stored in a bounded, expiring in-memory session store. This is a useful first step beyond a single global game state.
 - Runtime hardening: upload and remote PDF paths include content limits, file validation, request IDs, and more structured error responses.
+- First-session polish: NPC prompt guidance now emphasizes motives and believable resistance, onboarding offers beginner-friendly character paths, loading states are thematic, and action failures offer a natural retry path.
 
 ## Playtest Observations
 
@@ -90,15 +92,15 @@ The renderer should remain predictable. The LLM can decide what mode the scene i
 
 Near-term polish should make the current play experience smoother without blocking the larger persistence and release work.
 
-- Tune inline action detection so stat labels, headings, and descriptive emphasis do not become accidental choices.
+- Continue tuning inline action detection as playtest transcripts reveal fragile labels or decorative emphasis.
 - Consider moving from inferred bold-text actions to explicit model-produced choice markup if the heuristic becomes fragile.
 - Make inactive inline actions clear without making older narrative feel broken.
 - Preserve enough visible action history for the user to understand what happened after a streamed response.
 - Continue layout tuning across desktop, portrait mobile, and phone landscape.
 - Refine long-message readability, image height limits, and footer behavior.
-- Improve character creation pacing, customization prompts, portrait regeneration, and transition into the adventure.
-- Make NPC behavior less generically agreeable and more grounded in the adventure, situation, and character motives.
-- Replace generic alerts and connection failures with contextual recovery states.
+- Continue improving character customization prompts, portrait regeneration, and the transition from confirmed hero into the first playable scene.
+- Keep NPC behavior grounded in the adventure, situation, and character motives as more modules are tested.
+- Replace remaining generic alerts and connection failures with contextual recovery states.
 - Clearly distinguish uninitialized, busy, disconnected, and failed engine states.
 - Keep visible loading/progress feedback during PDF initialization, character generation, DM response streaming, and image generation.
 
@@ -241,7 +243,7 @@ Likely work:
 ## Suggested Milestones
 
 0. Review and tidy the prototype: reduce obvious tech debt, confirm boundaries, and add focused tests around the fragile paths.
-1. Stabilize the current play UI: finish inline-action tuning, layout polish, character creation flow, loading feedback, and clearer connection or error states.
+1. Stabilize the current play UI: continue mobile layout polish, lobby clarity, scene readability, character portrait flow, and remaining connection or error states.
 2. Prepare for trusted private feedback in small releases: access gate, tester or session identity, refresh-safe scene state, logging, review surface, and tester-facing privacy notes.
 3. Add broader local persistence: persist enough campaign metadata to survive browser refresh and server restart in a local or single-user deployment.
 4. Add campaign resume flows: give users a way to see, resume, rename, and delete saved adventures.

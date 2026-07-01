@@ -1,12 +1,12 @@
 # Step 0 Review: Private Feedback Readiness
 
-Last updated: 2026-06-28
+Last updated: 2026-06-30
 
 This note is the first pass of Step 0 from the roadmap. Its purpose is to reduce uncertainty before adding private-feedback features such as access gating, tester identity, persistence, logging, and a review surface.
 
 ## Validation Baseline
 
-- python3 run_tests.py passes: 30 tests green.
+- python run_tests.py passes: 44 tests green.
 - Existing tests cover engine streaming/tool behavior, route validation, remote URL safety, session-store eviction/TTL behavior, dice tools, prompts, and static frontend expectations.
 - Route tests use faked Flask and engine modules, which keeps them fast but means they do not exercise full Flask session/cookie behavior or real response parsing.
 
@@ -25,8 +25,8 @@ The main boundary issue for private feedback is that the server owns model runti
 - Refresh or tab close after initialization: browser scene state is lost; server runtime state may still exist but has no restore route.
 - Refresh during /action: client loses the stream; server may continue until the generator exits and releases the action lock, but the user has no clear recovery path.
 - Session expiry or process restart: SessionStore is in memory, so initialized games disappear without a resumable record.
-- Network failure during initialization or action: frontend currently shows generic alerts or inline critical errors rather than state-specific recovery choices.
-- Duplicate or concurrent actions: server action locking exists, but the UX for a 409 conflict is just an error message in the scene flow.
+- Network failure during action: frontend now offers a contextual retry action for failed player turns; initialization and some restart/upload failures still use generic alerts or system messages.
+- Duplicate or concurrent actions: server action locking exists, but the UX for a 409 conflict is still a retry-oriented scene message rather than a richer conflict state.
 - Scene image handling: generated images are data URLs in browser memory, not durable assets with metadata or cleanup policy.
 - Logs and observability: request IDs exist, but there is no durable activity log, tester/session label, transcript inspection, or summary view.
 - Privacy and expectations: there is no tester-facing note explaining what may be logged or how feedback data is handled.
@@ -37,7 +37,7 @@ The main boundary issue for private feedback is that the server owns model runti
 - Separate session identity helpers from route logic once access gating or tester labels are introduced.
 - Define typed event names/constants for streamed UI events to reduce drift between backend and frontend.
 - Add route tests for uninitialized action, action conflict, oversized/invalid action text, and request ID propagation using the current fake setup or a real Flask test client.
-- Add frontend static tests for JSON parse failure handling, inactive inline action behavior, and refresh/resume hooks once those hooks exist.
+- Add frontend static tests for JSON parse failure handling, inactive inline action behavior, mobile layout expectations, and refresh/resume hooks once those hooks exist.
 - Decide whether tmp/, __pycache__/, and generated screenshots are acceptable local-only artifacts or whether a cleanup script would help contributors.
 
 ## Suggested Step 0 Deliverables

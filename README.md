@@ -9,14 +9,14 @@ Live demo: [https://dungeon-harness.onrender.com/](https://dungeon-harness.onren
 ## Current Capabilities
 
 - AI-powered Dungeon Master driven by the contents of an uploaded 5e adventure PDF.
-- Existing adventure PDF support through local upload, with request and file-size protections.
+- Existing adventure PDF support through local upload or curated remote module links, with request, URL, and file-size protections.
 - Beautiful AI-generated scene illustrations created during play.
 - Free-form player input as the primary interface at all times.
-- Contextual clickable links embedded directly in narrative text.
-- Link and shortcut interactions that accelerate play while preserving unrestricted player input.
+- Contextual clickable links embedded directly in narrative text, filtered so natural player actions become shortcuts instead of accidental emphasis.
+- Link, menu, upload, restart, and retry shortcuts that accelerate play while preserving unrestricted player input.
 - Responsive scene-page UI with narrative, image, action, and input areas tuned for desktop and mobile.
-- Character creation and customization with illustrated portraits.
-- Streamed DM responses for a more immediate play experience.
+- First-time character creation guidance with quick heroes, archetypes, free-form concepts, confirmation or revision, and illustrated portraits.
+- Streamed DM responses, thematic busy states, and retry affordances for a more immediate and resilient play experience.
 - Session isolation by browser session, backed by bounded in-memory state.
 - Zero-schema conversational orchestration: the engine relies on text-native state and model context rather than rigid inventory, stat, or world-state tables.
 
@@ -44,7 +44,7 @@ Dungeon Harness currently uses Google's Gemini models, including multimodal imag
 
 2. Adventure PDF.
 
-   Provide your own standard 5e adventure module PDF, such as Matt Colville's *The Delian Tomb*. Start the application and use the local file selector to upload the PDF and initialize the game state.
+   Choose one of the built-in starter links in the lobby, or provide your own standard 5e adventure module PDF, such as Matt Colville's *The Delian Tomb*. Start the application and use the local file selector to upload the PDF and initialize the game state.
 
 3. Production settings, when deploying.
 
@@ -59,7 +59,7 @@ After the backend starts, open the local web interface, upload an adventure PDF,
 ### Development Checks
 
     pip install -r requirements-dev.txt
-    pytest
+    python run_tests.py
 
 Uploaded and remote PDFs are limited to 20 MiB by default. Override MAX_UPLOAD_BYTES or MAX_REMOTE_DOWNLOAD_BYTES only when the deployment has appropriate resource limits.
 
@@ -69,7 +69,7 @@ The near-term direction is to make Dungeon Harness stable enough for trusted pri
 
 Current roadmap themes include:
 
-- Player-facing polish for inline narrative links, mobile layout, loading states, character creation, and scene readability.
+- Continued player-facing polish for mobile layout, lobby clarity, scene readability, and the first few minutes of play.
 - Durable persistence so campaigns survive refreshes, restarts, and deployment churn.
 - Session management, campaign resume flows, and eventually accounts.
 - Logging, observability, private feedback tooling, and release-readiness work.
