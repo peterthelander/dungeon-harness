@@ -149,11 +149,76 @@ const ScenePage = (() => {
 
         const inputFooter = document.createElement('form');
         inputFooter.id = 'input-footer';
-        inputFooter.className = 'scene-page__input';
+        inputFooter.className = 'scene-page__input-container'; // changed class name for clarity
         inputFooter.addEventListener('submit', (event) => {
             event.preventDefault();
             onSubmit();
         });
+
+        const menuToggleBtn = document.createElement('button');
+        menuToggleBtn.type = 'button';
+        menuToggleBtn.className = 'menu-toggle-btn';
+        menuToggleBtn.innerHTML = '⋮';
+        menuToggleBtn.setAttribute('aria-label', 'Open main menu');
+        menuToggleBtn.setAttribute('aria-expanded', 'false');
+
+        const menuDropdown = document.createElement('div');
+        menuDropdown.className = 'app-menu-dropdown';
+        menuDropdown.hidden = true;
+        
+        const newAdventureItem = document.createElement('button');
+        newAdventureItem.className = 'app-menu-item';
+        newAdventureItem.textContent = 'New adventure';
+        newAdventureItem.onclick = () => submitPromptMenuItem('New adventure');
+        menuDropdown.appendChild(newAdventureItem);
+
+        const characterItem = document.createElement('button');
+        characterItem.className = 'app-menu-item';
+        characterItem.textContent = 'Character';
+        characterItem.onclick = () => submitPromptMenuItem('Character');
+        menuDropdown.appendChild(characterItem);
+
+        const inventoryItem = document.createElement('button');
+        inventoryItem.className = 'app-menu-item';
+        inventoryItem.textContent = 'Inventory';
+        inventoryItem.onclick = () => submitPromptMenuItem('Inventory');
+        menuDropdown.appendChild(inventoryItem);
+
+        const journalItem = document.createElement('button');
+        journalItem.className = 'app-menu-item';
+        journalItem.textContent = 'Journal';
+        journalItem.onclick = () => submitPromptMenuItem('Journal');
+        menuDropdown.appendChild(journalItem);
+
+        const recapItem = document.createElement('button');
+        recapItem.className = 'app-menu-item';
+        recapItem.textContent = 'Recap';
+        recapItem.onclick = () => submitPromptMenuItem('Recap');
+        menuDropdown.appendChild(recapItem);
+
+        const whatCanIDoItem = document.createElement('button');
+        whatCanIDoItem.className = 'app-menu-item';
+        whatCanIDoItem.textContent = 'What can I do?';
+        whatCanIDoItem.onclick = () => submitPromptMenuItem('What can I do?');
+        menuDropdown.appendChild(whatCanIDoItem);
+        
+        menuToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isHidden = menuDropdown.hidden;
+            menuDropdown.hidden = !isHidden;
+            menuToggleBtn.setAttribute('aria-expanded', !isHidden);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!menuDropdown.hidden && !menuDropdown.contains(e.target) && e.target !== menuToggleBtn) {
+                menuDropdown.hidden = true;
+                menuToggleBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        const menuContainer = document.createElement('div');
+        menuContainer.className = 'app-header__menu-container bottom-menu-container';
+        menuContainer.append(menuToggleBtn, menuDropdown);
 
         inputField = document.createElement('input');
         inputField.type = 'text';
@@ -169,7 +234,7 @@ const ScenePage = (() => {
         sendButton.title = 'Send action';
         sendButton.textContent = '↑';
 
-        inputFooter.append(inputField, sendButton);
+        inputFooter.append(menuContainer, inputField, sendButton);
         page.append(contentElement, inputFooter);
         rootElement.append(page);
     }
