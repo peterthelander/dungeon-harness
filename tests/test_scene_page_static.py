@@ -34,8 +34,8 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("function findPresetModule", script)
         self.assertIn("loadPresetModuleFromChat(presetModule)", script)
         self.assertIn("appendMessage(presetModule.label, 'player')", script)
-        self.assertIn("Preparing ${presetModule.label}", script)
-        self.assertIn("appendStatusMessage(`Preparing ${presetModule.label}", script)
+        self.assertIn("appendStatusIndicator();", script)
+        self.assertNotIn("appendStatusMessage", script)
         self.assertIn("await loadUrl(presetModule.url)", script)
 
     def test_scene_page_renderer_uses_page_data_model(self):
@@ -68,7 +68,7 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("nonActionLabels", script)
         self.assertIn("isActionableBoldLabel(label)", script)
         self.assertNotIn("QUESTION_FRAGMENT_PATTERNS", script)
-        self.assertNotIn("pattern.test(label)", script)
+        self.assertNotIn("patten.test(label)", script)
 
     def test_upload_pdf_inline_action_uses_file_picker(self):
         script = read_static_file("script.js")
@@ -78,16 +78,16 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("function triggerUploadFromChat", script)
         self.assertIn("fileInput.click()", script)
         self.assertIn("initializeEngine({ fromChat: true })", script)
-        self.assertIn("Preparing your uploaded PDF", script)
-        self.assertIn("appendStatusMessage('Preparing your uploaded PDF", script)
+        self.assertIn("appendStatusIndicator();", script)
+        self.assertNotIn("Preparing your uploaded PDF", script)
         self.assertIn("setupPdfUploadInput();", script)
 
     def test_action_waiting_and_retry_feedback_are_player_friendly(self):
         script = read_static_file("script.js")
         style = read_static_file("style.css")
 
-        self.assertIn("const WAITING_MESSAGES", script)
-        self.assertIn("appendStatusMessage(randomWaitingMessage())", script)
+        self.assertIn("function appendStatusIndicator", script)
+        self.assertNotIn("WAITING_MESSAGES", script)
         self.assertIn("buildRetryMessage", script)
         self.assertIn("normalizedLabel === 'try again'", script)
         self.assertIn("lastFailedActionText = text", script)

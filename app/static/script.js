@@ -25,13 +25,6 @@ const PRESET_MODULES = [
     { label: 'Dracula', author: 'Bram Stoker', url: 'https://www.bramstoker.org/pdf/novels/05dracula.pdf' }
 ];
 
-const WAITING_MESSAGES = [
-    'The Dungeon Master studies the map...',
-    'Dice clatter somewhere behind the screen...',
-    'Torchlight gathers around the next moment...',
-    'The scene is taking shape...'
-];
-
 function normalizeActionLabel(label) {
     return label.trim().toLowerCase();
 }
@@ -331,12 +324,8 @@ function appendSystemMessage(text) {
     return addSceneBlock('system', { markdown: text });
 }
 
-function appendStatusMessage(text) {
-    return addSceneBlock('system', { markdown: text, variant: 'status' });
-}
-
-function randomWaitingMessage() {
-    return WAITING_MESSAGES[Math.floor(Math.random() * WAITING_MESSAGES.length)];
+function appendStatusIndicator() {
+    return addSceneBlock('system', { markdown: '', variant: 'status' });
 }
 
 function buildRetryMessage(reason) {
@@ -448,7 +437,7 @@ async function loadPresetModuleFromChat(presetModule) {
 
     actionInProgress = true;
     appendMessage(presetModule.label, 'player');
-    appendStatusMessage(`Preparing ${presetModule.label}. This can take a minute while the module is loaded.`);
+    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -522,7 +511,7 @@ async function handlePdfUploadSelection() {
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
-    appendStatusMessage('Preparing your uploaded PDF. This can take a minute while the module is uploaded and read.');
+    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -589,7 +578,7 @@ async function sendAction(suggestedText = null) {
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
-    const pendingStatusBlock = appendStatusMessage(randomWaitingMessage());
+    appendStatusIndicator();
     const dmMessages = new Map();
     const dmText = new Map();
     let freshSceneStarted = false;
@@ -659,9 +648,6 @@ async function sendAction(suggestedText = null) {
                         appendSystemMessage(data.message);
                     } else if (data.type === 'status') {
                         ScenePage.setBusy(true, data.message);
-                        if (!freshSceneStarted) {
-                            updateSceneBlock(pendingStatusBlock, { markdown: data.message });
-                        }
                     } else if (data.type === 'image') {
                         startFreshScene();
                         setHeroImage(data.image_data);

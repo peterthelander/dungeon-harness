@@ -348,7 +348,13 @@ button.primary:disabled {
     margin-top: -6px;
 }
 .message--status {
+    align-self: flex-start;
+    width: auto;
+    padding: 10px;
+    border-radius: 999px;
     color: #f4d6a3;
+    font-size: 0;
+    line-height: 1;
     border-color: #6a4a24;
     background: linear-gradient(90deg, #2c2517 0%, #352814 52%, #2c2517 100%);
     background-size: 220% 100%;
@@ -358,9 +364,9 @@ button.primary:disabled {
 .message--status::before {
     content: "";
     display: inline-block;
-    width: 0.7em;
-    height: 0.7em;
-    margin-right: 0.55em;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-right: 0;
     border-radius: 50%;
     background: #f0bd78;
     box-shadow: 0 0 12px rgba(240, 189, 120, 0.75);
