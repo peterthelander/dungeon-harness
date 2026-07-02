@@ -242,17 +242,17 @@ const ScenePage = (() => {
     function render(data, options = {}) {
         if (!contentElement) return;
         const shouldStickToTop = options.stickToTop === true;
-        // Check if we're currently scrolled to the bottom (with a little tolerance)
-        const isScrolledToBottom = rootElement && (rootElement.scrollHeight - rootElement.scrollTop - rootElement.clientHeight < 50);
 
         contentElement.replaceChildren(renderScene(data));
         
-        if (shouldStickToTop && rootElement) {
-            rootElement.scrollTop = 0;
-        } else if (isScrolledToBottom && rootElement) {
-            // Auto scroll to bottom if we were already there
-            rootElement.scrollTop = rootElement.scrollHeight;
-        }
+        // Wait a tick for the DOM to update its size based on the new content
+        setTimeout(() => {
+            if (shouldStickToTop) {
+                window.scrollTo({ top: 0 });
+            } else {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
+        }, 10);
     }
 
     function renderScene(data) {
@@ -649,13 +649,9 @@ async function sendAction(suggestedText = null) {
     appendMessage(text, 'player');
     
     // Force scroll to bottom immediately upon sending a message
-    const rootElement = document.getElementById('scene-page-root');
-    if (rootElement) {
-        // use a short timeout to let the DOM update from appendMessage
-        setTimeout(() => {
-            rootElement.scrollTop = rootElement.scrollHeight;
-        }, 10);
-    }
+    setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 10);
     
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
