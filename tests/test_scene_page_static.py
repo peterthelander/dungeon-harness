@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import unittest
 
 
@@ -125,6 +126,19 @@ class ScenePageStaticTests(unittest.TestCase):
         self.assertIn("grid-template-columns: minmax(0, 1fr)", style)
         self.assertIn('grid-template-areas: "hero"', style)
 
+    def test_static_shell_exposes_installable_web_app_manifest(self):
+        index = read_static_file("index.html")
+        manifest = json.loads(read_static_file("manifest.webmanifest"))
+
+        self.assertIn('rel="manifest" href="manifest.webmanifest"', index)
+        self.assertIn('name="apple-mobile-web-app-capable" content="yes"', index)
+        self.assertEqual(manifest["name"], "Dungeon Harness")
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(manifest["start_url"], "/")
+        self.assertIn("theme_color", manifest)
+        self.assertIn("background_color", manifest)
+        self.assertTrue(any(icon["sizes"] == "192x192" for icon in manifest["icons"]))
+        self.assertTrue(any(icon["sizes"] == "512x512" for icon in manifest["icons"]))
 
 if __name__ == "__main__":
     unittest.main()
