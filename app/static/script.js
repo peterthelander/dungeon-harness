@@ -769,7 +769,13 @@ function closeAppMenu() {
 }
 
 function submitPromptMenuItem(text) {
-    closeAppMenu();
+    if (document.querySelector('.app-menu-dropdown')) {
+         document.querySelector('.app-menu-dropdown').hidden = true;
+    }
+    const btn = document.querySelector('.menu-toggle-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+
+    closeAppMenu(); // Keep old function for backwards compatibility just in case
     sendAction(text);
 }
 
