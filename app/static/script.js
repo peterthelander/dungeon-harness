@@ -342,14 +342,19 @@ const ScenePage = (() => {
         if (!inputField || !sendButton) return;
         inputField.disabled = isBusy;
         sendButton.disabled = isBusy;
-        sendButton.textContent = isBusy ? '…' : '↑';
-        sendButton.setAttribute('aria-label', statusText || (isBusy ? 'DM thinking' : 'Send action'));
-        sendButton.title = statusText || 'Send action';
+        
         if (isBusy) {
+            sendButton.textContent = '';
+            sendButton.classList.add('btn-busy');
             sendButton.setAttribute('aria-busy', 'true');
         } else {
+            sendButton.textContent = '↑';
+            sendButton.classList.remove('btn-busy');
             sendButton.removeAttribute('aria-busy');
         }
+        
+        sendButton.setAttribute('aria-label', statusText || (isBusy ? 'DM thinking' : 'Send action'));
+        sendButton.title = statusText || 'Send action';
     }
 
     function getInputValue() {
@@ -394,10 +399,6 @@ function appendMessage(text, role) {
 
 function appendSystemMessage(text) {
     return addSceneBlock('system', { markdown: text });
-}
-
-function appendStatusIndicator() {
-    return addSceneBlock('system', { markdown: '', variant: 'status' });
 }
 
 function buildRetryMessage(reason) {
@@ -509,7 +510,6 @@ async function loadPresetModuleFromChat(presetModule) {
 
     actionInProgress = true;
     appendMessage(presetModule.label, 'player');
-    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -583,7 +583,6 @@ async function handlePdfUploadSelection() {
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
-    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -656,7 +655,7 @@ async function sendAction(suggestedText = null) {
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
-    appendStatusIndicator();
+
     const dmMessages = new Map();
     const dmText = new Map();
     let freshSceneStarted = false;

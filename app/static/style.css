@@ -380,36 +380,7 @@ button.primary:disabled {
     border: 1px solid #443322;
 }
 
-.message.system + .message.system {
-    margin-top: -6px;
-}
-.message--status {
-    align-self: flex-start;
-    width: auto;
-    padding: 10px;
-    border-radius: 999px;
-    color: #f4d6a3;
-    font-size: 0;
-    line-height: 1;
-    border-color: #6a4a24;
-    background: linear-gradient(90deg, #2c2517 0%, #352814 52%, #2c2517 100%);
-    background-size: 220% 100%;
-    animation: status-glow 2.4s ease-in-out infinite;
-}
-
-.message--status::before {
-    content: "";
-    display: inline-block;
-    width: 0.8rem;
-    height: 0.8rem;
-    margin-right: 0;
-    border-radius: 50%;
-    background: #f0bd78;
-    box-shadow: 0 0 12px rgba(240, 189, 120, 0.75);
-    vertical-align: 0.02em;
-    animation: status-pulse 1.2s ease-in-out infinite;
-}
-
+/* Reusable glowing orb styles */
 @keyframes status-glow {
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -418,6 +389,30 @@ button.primary:disabled {
 @keyframes status-pulse {
     0%, 100% { opacity: 0.45; transform: scale(0.78); }
     50% { opacity: 1; transform: scale(1); }
+}
+
+.scene-page__input-container button[type="submit"].btn-busy {
+    background: linear-gradient(90deg, #b71c1c 0%, #d32f2f 50%, #b71c1c 100%);
+    background-size: 220% 100%;
+    animation: status-glow 2.4s ease-in-out infinite;
+    position: relative;
+    cursor: wait;
+    opacity: 1;
+}
+
+.scene-page__input-container button[type="submit"].btn-busy::before {
+    content: "";
+    position: absolute;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    background: #f0bd78;
+    box-shadow: 0 0 12px rgba(240, 189, 120, 0.75);
+    animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.message.system + .message.system {
+    margin-top: -6px;
 }
 
 
