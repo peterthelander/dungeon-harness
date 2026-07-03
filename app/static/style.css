@@ -144,13 +144,13 @@ button.primary:disabled {
     margin-right: 8px; /* Spacing from input field */
 }
 
-/* Base styling for main content area to handle proper scrolling with the fixed input at bottom */
+/* Base styling for main content area */
 .scene-page-scroll {
     width: 100%;
     flex: 1 1 auto;
     overflow: auto;
     padding-top: env(safe-area-inset-top, 20px); /* Account for system bar at the top */
-    padding-bottom: clamp(70px, calc(60px + env(safe-area-inset-bottom, 20px)), 120px); /* Account for the fixed input area */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 .menu-toggle-btn {
@@ -284,19 +284,15 @@ button.primary:disabled {
    INPUT AREA
    ---------------------------------------------------- */
 .scene-page__input-container {
-    position: fixed;
-    bottom: 0;
-    left: 0;
     width: 100%;
-    margin: 0; /* Override any other margin */
+    margin: 1rem 0 0 0;
     padding: clamp(10px, 1.5vw, 16px) clamp(14px, 2vw, 28px);
-    padding-bottom: calc(clamp(10px, 1.5vw, 16px) + env(safe-area-inset-bottom, 0px));
     background-color: var(--panel-bg);
-    border-top: 1px solid var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
     display: flex;
     gap: 10px;
     align-items: center;
-    z-index: 100;
 }
 
 .scene-page__input-container input[type="text"] {

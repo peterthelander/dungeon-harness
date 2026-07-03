@@ -235,15 +235,27 @@ const ScenePage = (() => {
         sendButton.textContent = '↑';
 
         inputFooter.append(menuContainer, inputField, sendButton);
-        page.append(contentElement, inputFooter);
+        
+        // Add the inputFooter into contentElement instead of page so it aligns with
+        // the normal flow of the chat box layout block, limiting its width appropriately
+        contentElement.append(inputFooter);
+        
+        page.append(contentElement);
         rootElement.append(page);
     }
 
     function render(data, options = {}) {
         if (!contentElement) return;
         const shouldStickToTop = options.stickToTop === true;
+        
+        // Before replacing children, grab the input footer so we don't lose it
+        const inputFooter = document.getElementById('input-footer');
 
         contentElement.replaceChildren(renderScene(data));
+        
+        if (inputFooter) {
+            contentElement.append(inputFooter);
+        }
         
         // Wait a tick for the DOM to update its size based on the new content
         setTimeout(() => {
