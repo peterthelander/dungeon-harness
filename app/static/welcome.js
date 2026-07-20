@@ -11,6 +11,17 @@ function mountGameScene() {
     ScenePage.init(root, { onSubmit: () => sendAction() });
 }
 
+function resumeCurrentAdventure() {
+    mountGameScene();
+    ScenePage.render(scenePageData, { stickToTop: true });
+    ScenePage.focusInput();
+}
+
+function openNewAdventureFlow() {
+    closeAppMenu();
+    showWelcome();
+}
+
 function welcomeAction(label, description, className, onClick) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -40,6 +51,14 @@ function showWelcome(view = 'threshold') {
             welcomeAction('Bring your own adventure', 'Upload a tabletop adventure PDF and enter its world.', 'welcome-action', triggerUploadFromChat)
         );
         content.append(actions);
+        if (scenePageData.blocks.length) {
+            const resume = document.createElement('button');
+            resume.type = 'button';
+            resume.className = 'welcome__resume';
+            resume.textContent = '← Return to current adventure';
+            resume.addEventListener('click', resumeCurrentAdventure);
+            content.append(resume);
+        }
         content.insertAdjacentHTML('beforeend', '<p class="welcome__note">No group or preparation required.</p>');
         screen.append(content);
     }

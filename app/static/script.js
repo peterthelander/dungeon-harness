@@ -169,7 +169,7 @@ const ScenePage = (() => {
         const newAdventureItem = document.createElement('button');
         newAdventureItem.className = 'app-menu-item';
         newAdventureItem.textContent = 'New adventure';
-        newAdventureItem.onclick = () => submitPromptMenuItem('New adventure');
+        newAdventureItem.onclick = openNewAdventureFlow;
         menuDropdown.appendChild(newAdventureItem);
 
         const characterItem = document.createElement('button');

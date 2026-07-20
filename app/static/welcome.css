@@ -14,6 +14,8 @@
 .welcome-action--primary small { color: #e1c9c1; }
 .welcome__note { color: #86827b; font-size: .78rem; margin-top: 18px; }
 .welcome--catalog { min-height: 100dvh; background: radial-gradient(circle at 85% 10%, rgba(115,42,31,.2), transparent 35%), #0d0f10; padding: clamp(24px, 5vw, 72px); }
+.welcome__resume { color: #cdbf9f; background: none; border: 0; cursor: pointer; font-weight: 700; margin-top: 22px; padding: 8px 0; }
+.welcome__resume:hover, .welcome__resume:focus-visible { color: #fff; outline: none; text-decoration: underline; text-underline-offset: 4px; }
 .adventure-catalog { width: min(1080px, 100%); margin: 0 auto; }
 .adventure-catalog h1 { font-size: clamp(2.7rem, 6vw, 5.2rem); margin-bottom: 14px; }
 .catalog-back, .catalog-upload { color: #cdbf9f; background: none; border: 0; cursor: pointer; font-weight: 700; margin-bottom: 40px; padding: 8px 0; }
