@@ -1,0 +1,7 @@
+.discovery__status { display: flex; align-items: center; gap: 12px; color: #b6afa3; margin: 44px 0; }
+.discovery__status span { width: 12px; height: 12px; border-radius: 50%; background: #d7a85e; box-shadow: 0 0 16px rgba(215,168,94,.65); animation: discovery-pulse 1.2s ease-in-out infinite; }
+.discovery__retry { color: #f5f0e7; background: #6f2922; border: 1px solid #a7483d; border-radius: 4px; cursor: pointer; padding: 12px 18px; }
+.discovery-card__source { color: #928d84; }
+.discovery__attribution { margin: 20px 0 8px; max-width: 100%; overflow: hidden; }
+@keyframes discovery-pulse { 50% { opacity: .35; transform: scale(.72); } }
+@media (prefers-reduced-motion: reduce) { .discovery__status span { animation: none; } }

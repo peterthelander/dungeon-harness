@@ -40,6 +40,8 @@ function showWelcome(view = 'threshold') {
 
     if (view === 'catalog') {
         screen.append(buildAdventureCatalog());
+    } else if (view === 'discover') {
+        screen.append(buildDiscoveryView());
     } else {
         const content = document.createElement('div');
         content.className = 'welcome__content';
@@ -51,6 +53,7 @@ function showWelcome(view = 'threshold') {
             welcomeAction('Bring your own adventure', 'Upload a tabletop adventure PDF and enter its world.', 'welcome-action', triggerUploadFromChat)
         );
         content.append(actions);
+        actions.append(welcomeAction('Discover free adventures', 'Search the web for freely published tabletop adventure PDFs.', 'welcome-action', () => showWelcome('discover')));
         if (scenePageData.blocks.length) {
             const resume = document.createElement('button');
             resume.type = 'button';
