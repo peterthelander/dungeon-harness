@@ -799,5 +799,5 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupPdfUploadInput();
-    initializeScenePage();
+    initializeWelcome();
 });

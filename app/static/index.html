@@ -7,30 +7,27 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Dungeon Harness">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Dungeon Harness Engine</title>
+    <title>Dungeon Harness</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="welcome.css">
+    <link rel="stylesheet" href="welcome-art.css">
 </head>
 <body>
-
-    <!-- Hidden initialization controls used by chat actions. -->
     <div id="upload-overlay" style="display: none;" aria-hidden="true">
         <input type="file" id="pdf-upload" accept="application/pdf" tabindex="-1" />
         <button class="primary" id="init-engine-btn" type="button" onclick="initializeEngine()">Begin Quest</button>
         <div id="loading-text">Preparing your adventure...</div>
     </div>
-
-    <!-- Main Game Dashboard -->
     <div id="dashboard">
         <main id="scene-page-root" aria-label="Current scene"></main>
     </div>
-
-    <!-- Engine Scripts -->
     <script src="script.js"></script>
+    <script src="welcome-art.js"></script>
+    <script src="welcome.js"></script>
 </body>
 </html>
