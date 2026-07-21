@@ -63,7 +63,11 @@ function showWelcome() {
         resume.addEventListener('click', resumeCurrentAdventure);
         content.append(resume);
     }
-    content.insertAdjacentHTML('beforeend', '<p class="welcome__note">No group or preparation required.</p>');
+    content.insertAdjacentHTML(
+        'beforeend',
+        '<p class="welcome__note">No group or preparation required.</p>' +
+        '<p class="welcome__privacy">Privacy: We record anonymous session events, coarse country, feature usage, and errors to improve the playtest. We do not record IP addresses, browser details, player text, filenames, or module URLs in activity analytics.</p>'
+    );
     screen.append(content);
 
     root.append(screen);

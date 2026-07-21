@@ -52,38 +52,43 @@ def _request_id() -> str:
 
 
 def _client_metadata() -> dict:
-    raw_ip = request.headers.get("X-Forwarded-For", getattr(request, "remote_addr", None) or "unknown")
-    ip = raw_ip.split(",")[0].strip() if raw_ip else "unknown"
-    country = (
+    raw_country = (
         request.headers.get("CF-IPCountry")
         or request.headers.get("X-Render-Origin-Country")
         or request.headers.get("X-Country-Code")
-        or "unknown"
+        or ""
     )
-    user_agent = request.headers.get("User-Agent", "unknown")
+    country = raw_country.upper() if len(raw_country) == 2 and raw_country.isalpha() else "unknown"
     session_id = session.get("session_id", "none")
     return {
-        "ip": ip,
         "country": country,
-        "user_agent": user_agent,
         "session_id": session_id,
     }
 
 
-def _log_activity(event_name: str, **details):
-    rid = _request_id()
+def _log_activity(event_name: str, request_id: Optional[str] = None, **details):
+    rid = request_id or _request_id()
     meta = _client_metadata()
     details_str = " ".join(f"{k}={v!r}" for k, v in details.items())
     logger.info(
-        "ACTIVITY event=%s req_id=%s session=%s ip=%s country=%s ua=%r %s",
+        "ACTIVITY event=%s req_id=%s session=%s country=%s %s",
         event_name,
         rid,
         meta["session_id"][:8],
-        meta["ip"],
         meta["country"],
-        meta["user_agent"][:80],
         details_str,
     )
+
+
+def _length_bucket(text: str) -> str:
+    length = len(text.strip())
+    if length <= 20:
+        return "1-20"
+    if length <= 100:
+        return "21-100"
+    if length <= 500:
+        return "101-500"
+    return "501-4000"
 
 
 def _json_error(message: str, status_code: int, code: str = "bad_request", request_id: Optional[str] = None):
@@ -162,7 +167,7 @@ def upload():
     try:
         if not _looks_like_pdf(temp_path):
             return _json_error("Uploaded file is not a valid PDF.", 400, request_id=request_id)
-        _log_activity("upload.start", module=safe_name)
+        _log_activity("upload.start", request_id=request_id, source="upload")
         dm_text, image_data = upload_pdf_and_init(temp_path, file.filename, session_state)
         session_state.module_source_type = "upload"
         session_state.module_source_url = None
@@ -212,7 +217,7 @@ def _load_remote_module_response(raw_url: str, session_state, request_id: str, e
         temp_path = temp_file.name
 
     try:
-        _log_activity(event_name, url=validated_url, module=filename)
+        _log_activity(event_name, request_id=request_id, source="url")
         _download_remote_file(validated_url, temp_path)
         if not _looks_like_pdf(temp_path):
             return _json_error("Remote file is not a valid PDF.", 400, request_id=request_id)
@@ -310,7 +315,11 @@ def action():
     if not action_lock.acquire(blocking=False):
         return _json_error("A previous action is still being processed.", 409, request_id=request_id)
 
-    _log_activity("action.start", text_preview=player_text.strip()[:60])
+    _log_activity(
+        "action.start",
+        request_id=request_id,
+        input_length_bucket=_length_bucket(player_text),
+    )
 
     def generate():
         try:
@@ -340,7 +349,7 @@ def get_session():
     request_id = _request_id()
     session_state = _get_session_state()
     initialized = session_state.chat_session is not None
-    _log_activity("session.get", initialized=initialized)
+    _log_activity("session.get", request_id=request_id, initialized=initialized)
     return _json_ok(
         {
             "initialized": initialized,
@@ -358,7 +367,7 @@ def reset_session():
     request_id = _request_id()
     session_state = _get_session_state()
     session_state.reset()
-    _log_activity("session.reset")
+    _log_activity("session.reset", request_id=request_id)
     return _json_ok({"status": "Session reset successfully"}, request_id)
 
 
