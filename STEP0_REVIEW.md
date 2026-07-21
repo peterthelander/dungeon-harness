@@ -6,7 +6,7 @@ This note is the first pass of Step 0 from the roadmap. Its purpose is to reduce
 
 ## Validation Baseline
 
-- python run_tests.py passes: 44 tests green.
+- python run_tests.py passes: 45 tests green as of the review; run the suite for the current count.
 - Existing tests cover engine streaming/tool behavior, route validation, remote URL safety, session-store eviction/TTL behavior, dice tools, prompts, and static frontend expectations.
 - Route tests use faked Flask and engine modules, which keeps them fast but means they do not exercise full Flask session/cookie behavior or real response parsing.
 

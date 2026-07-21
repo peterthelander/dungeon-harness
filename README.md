@@ -44,7 +44,7 @@ Dungeon Harness currently uses Google's Gemini models, including multimodal imag
 
 2. Adventure PDF.
 
-   Choose one of the built-in starter links in the lobby, or provide your own standard 5e adventure module PDF, such as Matt Colville's *The Delian Tomb*. Start the application and use the local file selector to upload the PDF and initialize the game state.
+   Choose one of the creator-published starter links in the lobby, or provide an adventure PDF that you have the right to use. Start the application and use the local file selector to upload the PDF and initialize the game state.
 
 3. Production settings, when deploying.
 
@@ -83,8 +83,8 @@ This repository is licensed under the **GNU General Public License v3.0 (GPLv3)*
 
 ### Open Source Usage
 
-Under the GPLv3, you are free to use, modify, and distribute this codebase for educational, scientific, and personal playtesting, provided that any derivative works or modifications you publish are also made 100% open-source under the exact same GPLv3 terms.
+GPLv3 permits use, modification, and commercial distribution. If you distribute a modified version or other covered work, you must provide the corresponding source and preserve the freedoms required by GPLv3. See the complete terms in [LICENSE](LICENSE).
 
 ### Commercial Intent And Alternative Licensing
 
-The author retains 100% of the original copyright and explicitly reserves the right to distribute this engine under alternative, proprietary commercial licenses for standalone applications or SaaS platforms. If you wish to use this engine framework inside a closed-source, commercial, or paid ecosystem, you must secure a commercial licensing exception from the author. For inquiries, please contact the author directly.
+The copyright holder may also offer separate proprietary licenses. GPLv3 itself permits commercial use; consult qualified counsel for advice about a specific use.

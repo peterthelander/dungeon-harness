@@ -19,12 +19,8 @@ const scenePageData = {
 };
 
 const PRESET_MODULES = [
-    { label: 'The Sky Blind Spire', author: 'Michael Prescott', url: 'https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf' },
-    { label: 'Tomb of the Serpent Kings', author: 'Skerples', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' },
-    { label: 'The Keep on the Borderlands', author: 'Gary Gygax', url: 'http://gmvalkyrie.free.fr/Books/TSR9034-B2.pdf' },
-    { label: 'Palace of the Silver Princess', author: 'Jean Wells', url: 'https://www.pandius.com/b3_orig.pdf' },
-    { label: 'The Lost City', author: 'Tom Moldvay', url: 'http://gobbi.free.fr/scenarii/B4%20-%20The%20Lost%20City.pdf' },
-    { label: 'The Crypt of Terror', author: 'Jeff Simpson and Kim Kuffner', url: 'https://swordsandschlock.wordpress.com/wp-content/uploads/2023/04/crypt-of-terror.pdf' }
+    { label: 'The Sky Blind Spire', author: 'Michael Prescott (CC BY-NC 3.0)', url: 'https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf' },
+    { label: 'Tomb of the Serpent Kings', author: 'Skerples (CC BY-NC)', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' }
 ];
 
 function normalizeActionLabel(label) {
@@ -40,7 +36,7 @@ function buildModuleLobbyText() {
     const moduleChoices = PRESET_MODULES
         .map((module) => `**${module.label}** by ${module.author}`)
         .join('\n');
-    return `Welcome to Dungeon Harness. Choose an adventure module, or bring your own PDF.\n\n${moduleChoices}\n**Upload a PDF**`;
+    return `Welcome to Dungeon Harness. Choose a creator-published adventure, or bring a PDF you have the right to use.\n\n${moduleChoices}\n**Upload a PDF**`;
 }
 
 function resetScenePage() {
