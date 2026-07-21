@@ -28,6 +28,16 @@ FALLBACK_SCENE_PROMPT = (
 TURN_FINAL_TOOL_NAMES = {"draw_scene"}
 
 
+def _opening_scene_prompt(introduction: str) -> str:
+    return (
+        "Create a cinematic fantasy tabletop-RPG opening illustration grounded in "
+        "the scene below. Depict its specific location, environment, focal subject, "
+        "danger, lighting, and atmosphere. Do not include interface elements, written "
+        "words, labels, captions, or choice text. Painterly realism.\n\n"
+        f"Opening scene:\n{introduction.strip()}"
+    )
+
+
 def _tool_calls_only_finish_visible_turn(function_calls) -> bool:
     return bool(function_calls) and all(
         getattr(function_call, "name", None) in TURN_FINAL_TOOL_NAMES
@@ -115,12 +125,14 @@ def upload_pdf_and_init(temp_path: str, filename: str, session_state: SessionSta
 
         response = model_client.send_message(session_state.chat_session, tool_responses)
 
-    if not dm_text.strip():
+    has_grounded_intro = bool(dm_text.strip())
+    if not has_grounded_intro:
         logger.warning("engine.init.empty_intro")
         dm_text = FALLBACK_INTRO_TEXT
     if image_data is None:
         try:
-            image_data = scene_renderer.render(FALLBACK_SCENE_PROMPT)
+            scene_prompt = _opening_scene_prompt(dm_text) if has_grounded_intro else FALLBACK_SCENE_PROMPT
+            image_data = scene_renderer.render(scene_prompt)
         except Exception:
             logger.exception("engine.init.fallback_scene_failed")
 

@@ -203,6 +203,31 @@ class ProcessActionTests(unittest.TestCase):
         self.assertEqual(image_data, "data:image/png;base64,ruins")
         self.assertIs(session_state.chat_session, chat_session)
 
+    def test_upload_pdf_and_init_renders_opening_text_when_model_returns_no_image(self):
+        uploaded_pdf = SimpleNamespace(name="module.pdf", state=SimpleNamespace(name="ACTIVE"))
+        chat_session = MagicMock()
+        introduction = "The pirate ship Torment unfurls its sails as explosions shake the salt cavern."
+        session_state = SessionState()
+
+        with (
+            patch.object(self.engine.model_client, "upload_file", return_value=uploaded_pdf),
+            patch.object(self.engine.model_client, "wait_for_file_processing", return_value=uploaded_pdf),
+            patch.object(self.engine.model_client, "create_chat_session", return_value=chat_session),
+            patch.object(self.engine.model_client, "send_message", return_value=make_chunk(text=introduction)),
+            patch.object(
+                self.engine.scene_renderer,
+                "render",
+                return_value="data:image/png;base64,torment",
+            ) as render_mock,
+        ):
+            dm_text, image_data = self.engine.upload_pdf_and_init("/tmp/module.pdf", "module.pdf", session_state)
+
+        self.assertEqual(dm_text, introduction)
+        self.assertEqual(image_data, "data:image/png;base64,torment")
+        visual_prompt = render_mock.call_args.args[0]
+        self.assertIn(introduction, visual_prompt)
+        self.assertNotEqual(visual_prompt, self.engine.FALLBACK_SCENE_PROMPT)
+
 
 if __name__ == "__main__":
     unittest.main()
