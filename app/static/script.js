@@ -38,7 +38,7 @@ function buildModuleLobbyText() {
     const moduleChoices = PRESET_MODULES
         .map((module) => `**${module.label}** by ${module.author}`)
         .join('\n');
-    return `Welcome to Dungeon Harness. Choose a creator-published adventure, or bring a PDF you have the right to use.\n\n${moduleChoices}\n**Upload a PDF**`;
+    return 'Welcome to Dungeon Harness. Choose a creator-published adventure, or bring a PDF you have the right to use.\n\n' + moduleChoices + '\n**Upload a PDF**\n\nBefore uploading, you must confirm that you have permission to use the material and understand that it will be processed by Google Gemini.';
 }
 
 function resetScenePage() {
@@ -603,6 +603,14 @@ async function handlePdfUploadSelection() {
     const fileInput = document.getElementById('pdf-upload');
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
     if (actionInProgress) return;
+
+    const consentGiven = window.confirm(
+        'I confirm that I have permission to use this material.'
+    );
+    if (!consentGiven) {
+        fileInput.value = '';
+        return;
+    }
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
