@@ -164,7 +164,7 @@ def process_action(player_text: str, session_state: SessionState):
 
     def _generate_events():
         try:
-            logger.info("engine.action.start text_length=%s text_preview=%r", len(player_text), " ".join(player_text.split())[:240])
+            logger.info("engine.action.start text_length=%s", len(player_text))
             current_input = player_text
             dm_text_full = ""
             message_id = 0
