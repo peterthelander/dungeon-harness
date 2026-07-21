@@ -20,7 +20,9 @@ const scenePageData = {
 
 const PRESET_MODULES = [
     { label: 'The Sky Blind Spire', author: 'Michael Prescott (CC BY-NC 3.0)', url: 'https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf' },
-    { label: 'Tomb of the Serpent Kings', author: 'Skerples (CC BY-NC)', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' }
+    { label: 'Tomb of the Serpent Kings', author: 'Skerples (CC BY-NC)', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' },
+    { label: 'Can\'t Sleep—Clowns Will Eat Me', author: 'Stephanie Bryant & Michael Prescott (CC BY-NC 4.0)', url: 'https://trilemma.com/blog/adventures/41%20Clowns.pdf' },
+    { label: 'Escape of the Torment', author: 'Brett Simison & Lucas Cimon (CC BY-NC-SA)', url: 'https://chezsoi.org/lucas/blog/images/2022/11/EscapeOfTheTorment-animated.pdf' }
 ];
 
 function normalizeActionLabel(label) {

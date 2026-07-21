@@ -1,6 +1,8 @@
 const WELCOME_MODULE_DETAILS = {
     'The Sky Blind Spire': { kind: 'adventure', description: 'Climb an impossible tower where gravity and architecture have both gone astray.', details: 'Short · Exploration · Surreal fantasy' },
     'Tomb of the Serpent Kings': { kind: 'adventure', description: 'Delve into a forgotten tomb built to teach brave newcomers how dungeons think.', details: 'Medium · Traps & discovery · Dark fantasy' },
+    'Can\'t Sleep—Clowns Will Eat Me': { kind: 'adventure', description: 'Unmask the psychic horror turning a sleepless circus into a maze of fear and illusion.', details: 'Short · Mystery & horror · Dark carnival' },
+    'Escape of the Torment': { kind: 'adventure', description: 'Escape a doomed ship through an interactive, animated one-page dungeon of hazards and hard choices.', details: 'Short · Escape & exploration · Nautical fantasy' },
     'The Keep on the Borderlands': { kind: 'adventure', description: 'A classic starting adventure set in a fortress on the edge of the wilderness, near the chaotic Caves of Chaos.', details: 'Classic · Megadungeon · Epic fantasy' },
     'Palace of the Silver Princess': { kind: 'adventure', description: 'A princess\'s palace is locked in time by a mysterious ruby, waiting to be freed.', details: 'Classic · Rescue · High fantasy' },
     'The Lost City': { kind: 'adventure', description: 'Lost in the desert, discover a buried step pyramid where strange factions dwell.', details: 'Classic · Desert sandbox · Weird fantasy' },
