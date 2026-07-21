@@ -107,6 +107,19 @@ class ProcessActionTests(unittest.TestCase):
         )
         self.assertEqual(chat_session.send_message.call_count, 1)
 
+    def test_process_action_explains_gemini_usage_limit(self):
+        chat_session = MagicMock()
+        chat_session.send_message_stream.side_effect = RuntimeError(
+            "429 RESOURCE_EXHAUSTED: quota exceeded"
+        )
+        session_state = SessionState(chat_session=chat_session)
+
+        events = list(self.engine.process_action("open the door", session_state))
+
+        self.assertEqual(events[0]["type"], "error")
+        self.assertEqual(events[0]["code"], "usage_limit_reached")
+        self.assertIn("public playtest", events[0]["error"])
+
     def test_process_action_intercepts_draw_scene_and_yields_image(self):
         chat_session = MagicMock()
         draw_scene_fc = SimpleNamespace(name="draw_scene", args={"visual_description": "misty dungeon hall"})

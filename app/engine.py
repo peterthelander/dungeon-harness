@@ -3,6 +3,7 @@ import logging
 
 from google.genai import types
 
+from app.errors import PUBLIC_USAGE_LIMIT_MESSAGE, is_gemini_usage_limit_error
 from app.model_client import GeminiModelClient
 from app.prompts import build_initial_prompt, build_system_instruction
 from app.scenes import SceneRenderer
@@ -251,7 +252,14 @@ def process_action(player_text: str, session_state: SessionState):
             yield {"type": "done"}
         except Exception as error:
             logger.exception("engine.action.failed", extra={"error": str(error)})
-            yield {"type": "error", "error": "Action processing failed."}
+            if is_gemini_usage_limit_error(error):
+                yield {
+                    "type": "error",
+                    "code": "usage_limit_reached",
+                    "error": PUBLIC_USAGE_LIMIT_MESSAGE,
+                }
+            else:
+                yield {"type": "error", "error": "Action processing failed."}
 
     turn_blocks = []
     dm_blocks_by_id = {}

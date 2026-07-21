@@ -9,6 +9,7 @@ from typing import Optional
 from werkzeug.utils import secure_filename
 
 from app.config import load_runtime_config
+from app.errors import PUBLIC_USAGE_LIMIT_MESSAGE, is_gemini_usage_limit_error
 from app.engine import process_action, upload_pdf_and_init
 from app.module_loader import (
     ALLOWED_EXTENSIONS,
@@ -174,8 +175,15 @@ def upload():
             },
             request_id,
         )
-    except Exception:
+    except Exception as error:
         logger.exception("upload.failed", extra={"request_id": request_id})
+        if is_gemini_usage_limit_error(error):
+            return _json_error(
+                PUBLIC_USAGE_LIMIT_MESSAGE,
+                429,
+                code="usage_limit_reached",
+                request_id=request_id,
+            )
         return _json_error(
             "Failed to initialize engine from uploaded file.",
             500,
@@ -228,8 +236,15 @@ def _load_remote_module_response(raw_url: str, session_state, request_id: str, e
             code="invalid_remote_file",
             request_id=request_id,
         )
-    except Exception:
+    except Exception as error:
         logger.exception("load_url.failed", extra={"request_id": request_id})
+        if is_gemini_usage_limit_error(error):
+            return _json_error(
+                PUBLIC_USAGE_LIMIT_MESSAGE,
+                429,
+                code="usage_limit_reached",
+                request_id=request_id,
+            )
         return _json_error(
             "Failed to load and initialize module from URL.",
             500,
@@ -301,7 +316,14 @@ def action():
         try:
             for item in process_action(player_text, session_state):
                 if item.get("type") == "error":
-                    item = {"type": "error", "error": "Action processing failed."}
+                    if item.get("code") == "usage_limit_reached":
+                        item = {
+                            "type": "error",
+                            "code": "usage_limit_reached",
+                            "error": PUBLIC_USAGE_LIMIT_MESSAGE,
+                        }
+                    else:
+                        item = {"type": "error", "error": "Action processing failed."}
                 yield json.dumps(item) + "\n"
                 if item.get("type") in ["done", "error"]:
                     break

@@ -149,6 +149,21 @@ class RoutesTests(unittest.TestCase):
         self.assertEqual(events[2]["type"], "image")
         self.assertEqual(events[3]["type"], "done")
 
+    def test_action_stream_preserves_usage_limit_message(self):
+        def fake_process_action(*_args, **_kwargs):
+            return iter(
+                [{"type": "error", "code": "usage_limit_reached", "error": "untrusted text"}]
+            )
+
+        main, fake_flask = load_main_module(process_action_impl=fake_process_action)
+        fake_flask.request.json = {"text": "look"}
+        fake_flask.request.headers = {}
+
+        event = json.loads(next(iter(main.action().data)))
+
+        self.assertEqual(event["code"], "usage_limit_reached")
+        self.assertIn("public playtest", event["error"])
+
     def test_action_uninitialized_session_returns_400(self):
         uninit_factory = lambda _sid: SimpleNamespace(chat_session=None, action_lock=threading.Lock(), history=[], hero_image_url=None)
         main, fake_flask = load_main_module(session_state_factory=uninit_factory)
