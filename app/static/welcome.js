@@ -100,8 +100,10 @@ function buildModuleGrid(kind) {
             document.querySelectorAll('.adventure-card, .catalog-upload, .catalog-back').forEach((element) => { element.disabled = true; });
             button.classList.add('adventure-card--loading');
             button.querySelector('.adventure-card__arrow').textContent = 'Preparing…';
+            actionInProgress = false;
             mountGameScene();
-            try { await loadUrl(module.url); } finally { actionInProgress = false; }
+            ScenePage.render(scenePageData, { stickToTop: true });
+            await loadPresetModuleFromChat(module);
         });
         grid.append(button);
     });
