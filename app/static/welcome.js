@@ -33,57 +33,43 @@ function welcomeAction(label, description, className, onClick) {
     return button;
 }
 
-function showWelcome(view = 'threshold') {
+function showWelcome() {
     const root = document.getElementById('scene-page-root');
     root.className = 'welcome-shell';
     root.replaceChildren();
     const screen = document.createElement('section');
-    screen.className = `welcome welcome--${view}`;
+    screen.className = 'welcome welcome--threshold';
 
-    if (view === 'catalog') {
-        screen.append(buildAdventureCatalog());
-    } else {
-        const content = document.createElement('div');
-        content.className = 'welcome__content';
-        content.innerHTML = '<p class="welcome__eyebrow">Dungeon Harness</p><h1>Step into the story.</h1><p class="welcome__lede">An AI game master brings an adventure to life. Explore dangerous places, meet their inhabitants, and decide what your character does next.</p>';
-        const actions = document.createElement('div');
-        actions.className = 'welcome__actions';
-        actions.append(
-            welcomeAction('Play a starter adventure', 'Choose a hand-picked quest and begin immediately.', 'welcome-action welcome-action--primary', () => showWelcome('catalog')),
-            welcomeAction('Bring your own adventure', 'Upload a tabletop adventure PDF and enter its world.', 'welcome-action', triggerUploadFromChat)
-        );
-        content.append(actions);
-        if (scenePageData.blocks.length) {
-            const resume = document.createElement('button');
-            resume.type = 'button';
-            resume.className = 'welcome__resume';
-            resume.textContent = '← Return to current adventure';
-            resume.addEventListener('click', resumeCurrentAdventure);
-            content.append(resume);
-        }
-        content.insertAdjacentHTML('beforeend', '<p class="welcome__note">No group or preparation required.</p>');
-        screen.append(content);
+    const content = document.createElement('div');
+    content.className = 'welcome__content';
+    content.innerHTML = '<h1>Dungeon Harness</h1><p class="welcome__lede">An AI game master brings an adventure to life. Choose a hand-picked quest below, or bring your own.</p>';
+
+    content.append(buildModuleGrid('adventure'));
+
+    const actions = document.createElement('div');
+    actions.className = 'welcome__actions';
+    actions.append(
+        welcomeAction('Bring your own adventure', 'Upload a tabletop adventure PDF and enter its world.', 'welcome-action', triggerUploadFromChat)
+    );
+    content.append(actions);
+
+    if (scenePageData.blocks.length) {
+        const resume = document.createElement('button');
+        resume.type = 'button';
+        resume.className = 'welcome__resume';
+        resume.textContent = '← Return to current adventure';
+        resume.addEventListener('click', resumeCurrentAdventure);
+        content.append(resume);
     }
+    content.insertAdjacentHTML('beforeend', '<p class="welcome__note">No group or preparation required.</p>');
+    screen.append(content);
+
     root.append(screen);
-    if (view === 'threshold') requestWelcomeArtwork();
+    requestWelcomeArtwork();
     document.getElementById('dashboard').style.display = 'flex';
 }
 
-function buildAdventureCatalog() {
-    const catalog = document.createElement('div');
-    catalog.className = 'adventure-catalog';
-    catalog.innerHTML = '<button class="catalog-back" type="button">← Back</button><p class="welcome__eyebrow">Choose your first world</p><h1>Starter adventures</h1><p class="catalog-intro">Begin with a tabletop adventure selected for exploration and discovery.</p>';
-    catalog.querySelector('.catalog-back').addEventListener('click', () => showWelcome());
-    catalog.append(buildModuleGrid('adventure'));
-
-    const upload = document.createElement('button');
-    upload.type = 'button';
-    upload.className = 'catalog-upload';
-    upload.textContent = 'Or bring your own adventure PDF →';
-    upload.addEventListener('click', triggerUploadFromChat);
-    catalog.append(upload);
-    return catalog;
-}
+// (catalog function removed)
 
 function buildModuleGrid(kind) {
     const grid = document.createElement('div');

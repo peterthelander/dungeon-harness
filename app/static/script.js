@@ -169,36 +169,42 @@ const ScenePage = (() => {
         menuDropdown.hidden = true;
         
         const newAdventureItem = document.createElement('button');
+        newAdventureItem.type = 'button';
         newAdventureItem.className = 'app-menu-item';
         newAdventureItem.textContent = 'New adventure';
         newAdventureItem.onclick = openNewAdventureFlow;
         menuDropdown.appendChild(newAdventureItem);
 
         const characterItem = document.createElement('button');
+        characterItem.type = 'button';
         characterItem.className = 'app-menu-item';
         characterItem.textContent = 'Character';
         characterItem.onclick = () => submitPromptMenuItem('Character');
         menuDropdown.appendChild(characterItem);
 
         const inventoryItem = document.createElement('button');
+        inventoryItem.type = 'button';
         inventoryItem.className = 'app-menu-item';
         inventoryItem.textContent = 'Inventory';
         inventoryItem.onclick = () => submitPromptMenuItem('Inventory');
         menuDropdown.appendChild(inventoryItem);
 
         const journalItem = document.createElement('button');
+        journalItem.type = 'button';
         journalItem.className = 'app-menu-item';
         journalItem.textContent = 'Journal';
         journalItem.onclick = () => submitPromptMenuItem('Journal');
         menuDropdown.appendChild(journalItem);
 
         const recapItem = document.createElement('button');
+        recapItem.type = 'button';
         recapItem.className = 'app-menu-item';
         recapItem.textContent = 'Recap';
         recapItem.onclick = () => submitPromptMenuItem('Recap');
         menuDropdown.appendChild(recapItem);
 
         const whatCanIDoItem = document.createElement('button');
+        whatCanIDoItem.type = 'button';
         whatCanIDoItem.className = 'app-menu-item';
         whatCanIDoItem.textContent = 'What can I do?';
         whatCanIDoItem.onclick = () => submitPromptMenuItem('What can I do?');

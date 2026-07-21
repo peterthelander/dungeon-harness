@@ -1,7 +1,7 @@
 .welcome-shell { min-height: 100dvh; width: 100%; }
 .welcome { min-height: 100dvh; color: #f5f0e7; position: relative; overflow: hidden; }
 .welcome--threshold { display: grid; align-items: center; }
-.welcome__content { position: relative; z-index: 1; width: min(660px, 92vw); padding: clamp(32px, 7vw, 104px); }
+.welcome__content { position: relative; z-index: 1; width: min(1080px, 92vw); padding: clamp(32px, 7vw, 104px); }
 .welcome__eyebrow { color: #d7a85e; font-size: .78rem; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; margin-bottom: 14px; }
 .welcome h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(3rem, 7vw, 6.6rem); font-weight: 500; line-height: .96; letter-spacing: -.04em; margin: 0 0 24px; text-wrap: balance; }
 .welcome__lede, .catalog-intro { color: #cbc6bd; font-size: clamp(1rem, 1.7vw, 1.22rem); line-height: 1.65; max-width: 570px; }
@@ -21,14 +21,14 @@
 .catalog-back, .catalog-upload { color: #cdbf9f; background: none; border: 0; cursor: pointer; font-weight: 700; margin-bottom: 40px; padding: 8px 0; }
 .catalog-back:hover, .catalog-upload:hover { color: #fff; }
 .adventure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 32px 0; }
-.adventure-card { min-height: 245px; display: grid; grid-template-columns: auto 1fr auto; gap: 18px; padding: clamp(20px, 3vw, 32px); text-align: left; color: #eee9df; background: linear-gradient(145deg, #202120, #151716); border: 1px solid #343530; border-radius: 6px; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; }
+.adventure-card { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; padding: clamp(16px, 2.5vw, 24px); text-align: left; color: #eee9df; background: linear-gradient(145deg, #202120, #151716); border: 1px solid #343530; border-radius: 6px; cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; }
 .adventure-card:hover, .adventure-card:focus-visible { transform: translateY(-4px); border-color: #9e7948; box-shadow: 0 18px 40px rgba(0,0,0,.35); outline: none; }
 .adventure-card__number { color: #8d6e43; font: italic 1rem Georgia, serif; }
 .adventure-card__body { display: flex; flex-direction: column; }
-.adventure-card strong { font: 500 clamp(1.45rem, 3vw, 2.1rem) Georgia, serif; line-height: 1.08; }
-.adventure-card__author { color: #928d84; margin-top: 6px; font-size: .82rem; }
-.adventure-card__description { color: #c6c1b8; line-height: 1.55; margin-top: 24px; }
-.adventure-card__details { color: #b78c51; font-size: .75rem; letter-spacing: .06em; margin-top: auto; padding-top: 20px; text-transform: uppercase; }
+.adventure-card strong { font: 500 clamp(1.3rem, 2.5vw, 1.8rem) Georgia, serif; line-height: 1.08; }
+.adventure-card__author { color: #928d84; margin-top: 4px; font-size: .82rem; }
+.adventure-card__description { color: #c6c1b8; line-height: 1.45; margin-top: 12px; }
+.adventure-card__details { color: #b78c51; font-size: .75rem; letter-spacing: .06em; margin-top: 12px; text-transform: uppercase; }
 .adventure-card__arrow { color: #d7a85e; align-self: end; }
 .adventure-card--loading { border-color: #d7a85e; }
 .experimental-stories { border-top: 1px solid #2c2d2b; border-bottom: 1px solid #2c2d2b; padding: 24px 0 4px; margin-top: 44px; }
@@ -44,7 +44,6 @@
     .welcome__lede { font-size: .98rem; line-height: 1.5; }
     .welcome__actions { margin-top: 24px; }
     .adventure-grid { grid-template-columns: 1fr; }
-    .adventure-card { min-height: 220px; }
     .welcome--catalog { padding: 24px 16px 48px; }
 }
 @media (prefers-reduced-motion: reduce) { .welcome-action, .adventure-card { transition: none; } }
