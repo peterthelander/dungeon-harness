@@ -22,7 +22,6 @@ from app.module_loader import (
     validate_remote_url,
 )
 from app.state import SessionStore
-from app.adventure_search import register_adventure_search_route
 from app.welcome_image import register_welcome_image_route
 
 
@@ -36,7 +35,6 @@ session_store = SessionStore(config.session_ttl_seconds, config.max_sessions)
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.secret_key = config.flask_secret_key
-register_adventure_search_route(app)
 register_welcome_image_route(app)
 app.config["MAX_CONTENT_LENGTH"] = config.max_upload_bytes
 app.config.update(

@@ -21,8 +21,10 @@ const scenePageData = {
 const PRESET_MODULES = [
     { label: 'The Sky Blind Spire', author: 'Michael Prescott', url: 'https://trilemma.com/blog/adventures/24%20Sky-Blind%20Spire.pdf' },
     { label: 'Tomb of the Serpent Kings', author: 'Skerples', url: 'https://friendorfoe.com/d/Tomb%20of%20the%20Serpent_Kings%20v4.pdf' },
-    { label: 'Moby Dick', author: 'Herman Melville', url: 'https://uberty.org/wp-content/uploads/2015/12/herman-melville-moby-dick.pdf' },
-    { label: 'Dracula', author: 'Bram Stoker', url: 'https://www.bramstoker.org/pdf/novels/05dracula.pdf' }
+    { label: 'The Keep on the Borderlands', author: 'Gary Gygax', url: 'http://gmvalkyrie.free.fr/Books/TSR9034-B2.pdf' },
+    { label: 'Palace of the Silver Princess', author: 'Jean Wells', url: 'https://www.pandius.com/b3_orig.pdf' },
+    { label: 'The Lost City', author: 'Tom Moldvay', url: 'http://gobbi.free.fr/scenarii/B4%20-%20The%20Lost%20City.pdf' },
+    { label: 'The Crypt of Terror', author: 'Jeff Simpson and Kim Kuffner', url: 'https://swordsandschlock.wordpress.com/wp-content/uploads/2023/04/crypt-of-terror.pdf' }
 ];
 
 function normalizeActionLabel(label) {
@@ -413,6 +415,10 @@ function appendSystemMessage(text) {
     return addSceneBlock('system', { markdown: text });
 }
 
+function appendStatusIndicator() {
+    return addSceneBlock('system', { markdown: '', variant: 'status' });
+}
+
 function buildRetryMessage(reason) {
     const detail = reason ? ` ${reason}` : '';
     return `The magic sputtered for a moment.${detail} Your last action is safe to try again.` + '\n\n**Try again**';
@@ -522,6 +528,7 @@ async function loadPresetModuleFromChat(presetModule) {
 
     actionInProgress = true;
     appendMessage(presetModule.label, 'player');
+    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -595,6 +602,7 @@ async function handlePdfUploadSelection() {
 
     actionInProgress = true;
     appendMessage('Upload a PDF', 'player');
+    appendStatusIndicator();
     deactivateInlineActions();
     ScenePage.setBusy(true, 'Preparing your adventure');
 
@@ -667,6 +675,7 @@ async function sendAction(suggestedText = null) {
     ScenePage.clearInput();
     ScenePage.setBusy(true, 'DM thinking');
     deactivateInlineActions();
+    appendStatusIndicator();
 
     const dmMessages = new Map();
     const dmText = new Map();

@@ -1,8 +1,10 @@
 const WELCOME_MODULE_DETAILS = {
     'The Sky Blind Spire': { kind: 'adventure', description: 'Climb an impossible tower where gravity and architecture have both gone astray.', details: 'Short · Exploration · Surreal fantasy' },
     'Tomb of the Serpent Kings': { kind: 'adventure', description: 'Delve into a forgotten tomb built to teach brave newcomers how dungeons think.', details: 'Medium · Traps & discovery · Dark fantasy' },
-    'Dracula': { kind: 'classic', description: 'Enter a gothic world of letters, shadows, and an ancient predator.', details: 'Experimental · Gothic horror' },
-    'Moby Dick': { kind: 'classic', description: 'Sail into obsession aboard the Pequod and see whether the story can change.', details: 'Experimental · Maritime adventure' }
+    'The Keep on the Borderlands': { kind: 'adventure', description: 'A classic starting adventure set in a fortress on the edge of the wilderness, near the chaotic Caves of Chaos.', details: 'Classic · Megadungeon · Epic fantasy' },
+    'Palace of the Silver Princess': { kind: 'adventure', description: 'A princess\'s palace is locked in time by a mysterious ruby, waiting to be freed.', details: 'Classic · Rescue · High fantasy' },
+    'The Lost City': { kind: 'adventure', description: 'Lost in the desert, discover a buried step pyramid where strange factions dwell.', details: 'Classic · Desert sandbox · Weird fantasy' },
+    'The Crypt of Terror': { kind: 'adventure', description: 'A journey into an ancient crypt filled with undead and forgotten evils.', details: 'Classic · Dungeon crawl · Dark fantasy' }
 };
 
 function mountGameScene() {
@@ -40,8 +42,6 @@ function showWelcome(view = 'threshold') {
 
     if (view === 'catalog') {
         screen.append(buildAdventureCatalog());
-    } else if (view === 'discover') {
-        screen.append(buildDiscoveryView());
     } else {
         const content = document.createElement('div');
         content.className = 'welcome__content';
@@ -53,7 +53,6 @@ function showWelcome(view = 'threshold') {
             welcomeAction('Bring your own adventure', 'Upload a tabletop adventure PDF and enter its world.', 'welcome-action', triggerUploadFromChat)
         );
         content.append(actions);
-        actions.append(welcomeAction('Discover free adventures', 'Search the web for freely published tabletop adventure PDFs.', 'welcome-action', () => showWelcome('discover')));
         if (scenePageData.blocks.length) {
             const resume = document.createElement('button');
             resume.type = 'button';
@@ -76,12 +75,6 @@ function buildAdventureCatalog() {
     catalog.innerHTML = '<button class="catalog-back" type="button">← Back</button><p class="welcome__eyebrow">Choose your first world</p><h1>Starter adventures</h1><p class="catalog-intro">Begin with a tabletop adventure selected for exploration and discovery.</p>';
     catalog.querySelector('.catalog-back').addEventListener('click', () => showWelcome());
     catalog.append(buildModuleGrid('adventure'));
-
-    const experimental = document.createElement('details');
-    experimental.className = 'experimental-stories';
-    experimental.innerHTML = '<summary>Explore playable classics <span>Experimental</span></summary><p>Step inside familiar literature reimagined as an interactive world.</p>';
-    experimental.append(buildModuleGrid('classic'));
-    catalog.append(experimental);
 
     const upload = document.createElement('button');
     upload.type = 'button';
