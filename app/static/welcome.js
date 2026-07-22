@@ -66,7 +66,8 @@ function showWelcome() {
     content.insertAdjacentHTML(
         'beforeend',
         '<p class="welcome__note">No group or preparation required.</p>' +
-        '<p class="welcome__privacy">Privacy: We record anonymous session events, coarse country, feature usage, and errors to improve the playtest. We do not record IP addresses, browser details, player text, filenames, or module URLs in activity analytics.</p>'
+        '<p class="welcome__privacy">Privacy: We record anonymous session events, coarse country, feature usage, and errors to improve the playtest. We do not record IP addresses, browser details, player text, filenames, or module URLs in activity analytics.</p>' +
+        '<p class="welcome__privacy">Experimental public playtest: sessions may be lost and AI-generated content may be inaccurate or unexpected. Only upload material you have permission to use. Dungeon Harness is an independent project and is not affiliated with, endorsed by, or sponsored by any game publisher or featured adventure creator.</p>'
     );
     screen.append(content);
 

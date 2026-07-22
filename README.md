@@ -77,6 +77,12 @@ Current roadmap themes include:
 
 See [ROADMAP.md](ROADMAP.md) for the full product and engineering roadmap.
 
+## Public Playtest Disclaimer
+
+Dungeon Harness is experimental public-playtest software. Sessions may be lost, and AI-generated content may be inaccurate or unexpected. Only upload material that you have permission to use.
+
+Dungeon Harness is an independent project and is not affiliated with, endorsed by, or sponsored by any game publisher or featured adventure creator.
+
 ## License
 
 This repository is licensed under the **GNU General Public License v3.0 (GPLv3)**.
