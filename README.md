@@ -56,6 +56,53 @@ Dungeon Harness currently uses Google's Gemini models, including multimodal imag
 
 After the backend starts, open the local web interface, upload an adventure PDF, create a character, and begin play.
 
+### Play From Your Phone Over Tailscale (Windows + WSL)
+
+Both the Windows laptop and phone must be connected to Tailscale. Use your
+laptop's Tailscale hostname in the phone URL, for example
+`https://your-laptop.your-tailnet.ts.net:8443`.
+
+One-time local setup in WSL:
+
+```bash
+cd /path/to/dungeon-harness
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+Create a `.env` file in the repository with the following settings, replacing the
+placeholders with your Gemini API key and laptop URL. This file is ignored by Git; keep it private.
+The launcher reads it as shell syntax.
+
+```bash
+GEMINI_API_KEY='your-api-key-here'
+PHONE_URL='https://your-laptop.your-tailnet.ts.net:8443'
+```
+
+Start the app whenever you want to play or work on it:
+
+```bash
+bash scripts/start-phone.sh
+```
+
+Keep that terminal open and the laptop awake, then open the phone URL above.
+Python edits reload automatically; refresh the phone for frontend edits.
+No commit, push, or Vercel deployment is required. Reloading or stopping the
+server clears the current in-memory games.
+
+The laptop's Tailscale Serve mapping is configured separately from Git. To
+recreate it from WSL (Windows Tailscale must be installed and signed in):
+
+```bash
+"/mnt/c/Program Files/Tailscale/tailscale.exe" serve --bg --https=8443 http://127.0.0.1:5000
+```
+
+This relies on Windows forwarding localhost traffic to WSL. To remove only this
+mapping, use the same command with `off` appended. Avoid `serve reset`, which
+would also remove mappings used by other applications. `PHONE_URL` only controls
+the launcher's displayed link; configure Tailscale Serve separately as shown above.
+Keep machine-specific notes in `PHONE_SETUP.local.md`, which is ignored by Git.
+
 ### Development Checks
 
     pip install -r requirements-dev.txt
