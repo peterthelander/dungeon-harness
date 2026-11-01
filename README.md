@@ -4,7 +4,27 @@ Dungeon Harness is an AI-powered illustrated Dungeon Master for tabletop RPG adv
 
 The project began as an experimental AI game engine, but its direction is now more specific: a playable, text-first Dungeon Master that can run existing tabletop adventure modules while presenting them like an illustrated interactive storybook.
 
-Live demo: [https://dungeon-harness.onrender.com/](https://dungeon-harness.onrender.com/)
+**Status:** experimental playable prototype; sessions are held in memory.
+
+[Hosted interface](https://dungeon-harness.vercel.app/) · [Roadmap](ROADMAP.md)
+
+The hosted page is available, but this is not a guarantee that its backing AI
+service is currently configured. The local setup below is the reproducible entry
+point; it requires your own Gemini API key and an adventure PDF you may use.
+
+## How the pieces fit
+
+```mermaid
+flowchart LR
+    PDF["Adventure PDF"] --> Server["Flask session and AI orchestration"]
+    Player["Browser · free-form player actions"] <--> Server
+    Server <--> Gemini["Gemini narration and images"]
+    Server --> State["Bounded in-memory game state"]
+```
+
+The design keeps the player free to type an action while deterministic UI code
+renders narration, images, and shortcuts. AI output is not guaranteed accurate,
+and restarting the server loses active sessions.
 
 ## Current Capabilities
 
@@ -34,6 +54,18 @@ Dungeon Harness currently uses Google's Gemini models, including multimodal imag
 
 ## Running Locally
 
+### Install
+
+From the repository root, create an environment and install dependencies:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+These commands use Linux/macOS paths. On Windows use `python -m venv .venv`
+and `.venv\Scripts\python.exe` in place of `.venv/bin/python`.
+
 ### Prerequisites
 
 1. Google Gemini API key.
@@ -52,7 +84,7 @@ Dungeon Harness currently uses Google's Gemini models, including multimodal imag
 
 ### Start The App
 
-    python run.py
+    .venv/bin/python run.py
 
 After the backend starts, open the local web interface, upload an adventure PDF, create a character, and begin play.
 
@@ -105,8 +137,8 @@ Keep machine-specific notes in `PHONE_SETUP.local.md`, which is ignored by Git.
 
 ### Development Checks
 
-    pip install -r requirements-dev.txt
-    python run_tests.py
+    .venv/bin/python -m pip install -r requirements-dev.txt
+    .venv/bin/python run_tests.py
 
 Uploaded and remote PDFs are limited to 20 MiB by default. Override MAX_UPLOAD_BYTES or MAX_REMOTE_DOWNLOAD_BYTES only when the deployment has appropriate resource limits.
 
